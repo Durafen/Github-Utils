@@ -1,0 +1,21 @@
+You are analyzing GitHub repository forks that have commits ahead of the parent repository.
+
+Repository: {repo_name}
+Fork: {fork_name} ({fork_url})
+Commits ahead: {commits_ahead}
+
+Parent repository README:
+{parent_readme}
+
+Fork repository README:
+{fork_readme_section}
+
+Recent commits in this fork:
+{commits_section}
+
+Please provide a concise summary (2-3 bullets, upto 10 words each) explaining:
+1. What improvements or changes this fork adds compared to the parent
+2. Why this fork might be better or different than the original
+3. Whether this represents a meaningful enhancement
+
+Focus on the practical value and improvements. Output plain text without markdown formatting for terminal display.
