@@ -334,3 +334,60 @@ class GitHubFetcher:
                    '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
         
         return self._run_gh_command(cmd)
+
+    def get_branch_shas_only(self, owner, repo, limit=None):
+        """Get lightweight branch list with only names and SHAs for performance optimization"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches']
+        if limit:
+            cmd.extend(['--jq', f'.[:{limit}] | .[] | {{name, commit: {{sha}}}}'])
+        else:
+            cmd.extend(['--jq', '.[] | {name, commit: {sha}}'])
+        
+        return self._run_gh_command_multiline_json(cmd)
+
+    def get_fork_last_commits(self, owner, repo, limit=None):
+        """Get fork list with their default branch SHAs only for performance optimization"""
+        per_page = limit or 20
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/forks?per_page={per_page}']
+        if limit:
+            cmd.extend(['--jq', f'.[:{limit}] | .[] | {{owner: .owner.login, name, full_name, default_branch, updated_at, private}}'])
+        else:
+            cmd.extend(['--jq', '.[] | {owner: .owner.login, name, full_name, default_branch, updated_at, private}'])
+        
+        return self._run_gh_command_multiline_json(cmd)
+
+    def has_branch_changed(self, owner, repo, branch_name, last_known_sha):
+        """Check if single branch has new commits (ultra-lightweight)"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches/{branch_name}', '--jq', '.commit.sha']
+        try:
+            result = self._run_gh_command(cmd, parse_json=False)
+            current_sha = result.strip().replace('"', '')
+            return current_sha != last_known_sha
+        except RuntimeError:
+            # Branch may not exist or be accessible
+            return False
+
+    def get_current_main_sha(self, owner, repo):
+        """Get current main/default branch SHA (lightweight check)"""
+        default_branch = self.get_default_branch(owner, repo)
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches/{default_branch}', '--jq', '.commit.sha']
+        try:
+            result = self._run_gh_command(cmd, parse_json=False)
+            return result.strip().replace('"', '')
+        except RuntimeError:
+            return None
+
+    def get_branch_comparison_lightweight(self, owner, repo, base_branch, compare_branch, is_fork=False, parent_info=None):
+        """Lightweight version that returns only ahead_by count and latest SHA"""
+        if is_fork and parent_info:
+            parent_owner, parent_name = parent_info
+            cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
+                   '--jq', '{ahead_by: .ahead_by, latest_sha: (.commits[-1].sha // null)}']
+        else:
+            cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
+                   '--jq', '{ahead_by: .ahead_by, latest_sha: (.commits[-1].sha // null)}']
+        
+        try:
+            return self._run_gh_command(cmd)
+        except RuntimeError:
+            return {'ahead_by': 0, 'latest_sha': None}

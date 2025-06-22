@@ -75,66 +75,31 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             show_costs = self.config_manager.get_show_costs_setting()
             header_displayed = False
             
-            # Check each fork for commits ahead across multiple branches
-            for fork in forks:
-                fork_owner = fork['owner']
-                fork_name = fork['name']
-                fork_default_branch = fork.get('default_branch', 'main')
-                
-                # Process multi-branch analysis for this fork
-                fork_analysis = self._process_fork_branches(
-                    owner, repo_name, parent_default_branch, fork_owner, fork_name, fork_default_branch,
-                    max_branches_per_fork, min_commits_ahead, analyze_default_branch_always,
-                    max_commits, parent_readme, repo_key
+            # OPTIMIZATION: Smart fork filtering with early exit
+            # Stage 1: Get lightweight fork list (just names and default branch info)
+            current_forks = self.fetcher.get_fork_last_commits(owner, repo_name, max_forks)
+            
+            # Stage 2: Filter by state before expensive operations
+            forks_to_process = []
+            for fork in current_forks:
+                fork_full_name = fork['full_name']
+                if self._should_process_fork_by_state(repo_key, fork_full_name, fork):
+                    forks_to_process.append(fork)
+            
+            if not forks_to_process:
+                if self.config_manager.get_boolean_setting('debug'):
+                    self.display.display_no_fork_changes(repo['name'])
+                # Display summary even when no forks need processing
+                self.display.display_forks_summary(
+                    repo['name'], 0, len(current_forks), 
+                    self.cost_tracker.get_total_cost_info(),
+                    self.config_manager.get_show_costs_setting(),
+                    repo.get('url')
                 )
-                
-                if fork_analysis:
-                    ahead_forks.append(fork_analysis)
-                    
-                    # Display header only once when first fork is found
-                    if not header_displayed:
-                        self.display.display_forks_header(repo['name'], repo.get('url'))
-                        header_displayed = True
-                    
-                    # Process fork immediately for AI summary
-                    fork_info = fork_analysis
-                    # Build README sections for prompt
-                    parent_readme_text = parent_readme if parent_readme else "No README found in parent repository."
-                    
-                    fork_readme = fork_info.get('readme')
-                    fork_readme_diff = self.fetcher.generate_readme_diff(parent_readme, fork_readme)
-                    
-                    # Build fork data for AI summary (with multi-branch support)
-                    fork_data = {
-                        'name': repo['name'],
-                        'fork_name': fork_info['fork_name'],
-                        'fork_url': fork_info['fork_url'],
-                        'commits_ahead': len(fork_info['commits']),  # Main branch commits count for prompt header
-                        'commits': fork_info['commits'],
-                        'parent_readme': parent_readme_text,
-                        'fork_readme_diff': fork_readme_diff,
-                        'branches': fork_info.get('branches', []),
-                        'total_branches_analyzed': fork_info.get('total_branches_analyzed', 1)
-                    }
-                    
-                    result = self.generator.generate_summary(fork_data)
-                    
-                    # Accumulate costs
-                    if 'cost_info' in result:
-                        self.cost_tracker.add_cost(result['cost_info'])
-                    
-                    self.display.display_fork_summary(
-                        repo['name'], 
-                        fork_info['fork_name'], 
-                        fork_info['fork_url'],
-                        len(fork_info['commits']),  # Main branch commits count for display consistency
-                        result['summary'],
-                        fork_info.get('branches'),
-                        fork_info.get('last_commit_timestamp')
-                    )
-                    
-                    # Update fork state tracking
-                    self._update_fork_state(repo_key, fork_info)
+                return
+            
+            # Stage 3: Full processing only for changed forks
+            ahead_forks = self._process_fork_subset(forks_to_process, owner, repo_name, parent_default_branch, max_branches_per_fork, min_commits_ahead, analyze_default_branch_always, max_commits, parent_readme, repo_key)
             
             # Show message if no forks found after processing all
             if not ahead_forks:
@@ -145,7 +110,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             self.display.display_forks_summary(
                 repo['name'],
                 len(ahead_forks),
-                len(forks),
+                len(current_forks),
                 self.cost_tracker.get_total_cost_info(),
                 show_costs,
                 repo.get('url')
@@ -395,6 +360,113 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             'total_branches_analyzed': len(branch_analyses),
             'last_commit_timestamp': fork_timestamp,
         }
+
+    def _should_process_fork_by_state(self, repo_key, fork_full_name, fork_basic_info):
+        """Quick check if fork needs processing based on lightweight state comparison"""
+        if not self.config_manager.get_boolean_setting('save_state', True):
+            return True
+            
+        repo_state = self.state.get(repo_key, {})
+        processed_forks = repo_state.get('processed_forks', {})
+        
+        if fork_full_name not in processed_forks:
+            return True  # New fork
+        
+        # For lightweight check, we can't compare all branches here
+        # So we'll do a quick updated_at timestamp check if available
+        fork_last_update = fork_basic_info.get('updated_at')
+        if not fork_last_update:
+            return True  # Process if we can't determine last update
+        
+        # Compare with our last check time
+        saved_fork_state = processed_forks[fork_full_name]
+        last_check = saved_fork_state.get('last_check')
+        
+        if not last_check:
+            return True  # Process if no previous check
+        
+        # Quick timestamp comparison (not perfect but good enough for early filtering)
+        try:
+            from datetime import datetime
+            fork_update_time = datetime.fromisoformat(fork_last_update.replace('Z', '+00:00'))
+            last_check_time = datetime.fromisoformat(last_check)
+            return fork_update_time > last_check_time
+        except:
+            return True  # Process if timestamp comparison fails
+
+    def _process_fork_subset(self, forks_to_process, owner, repo_name, parent_default_branch, max_branches_per_fork, min_commits_ahead, analyze_default_branch_always, max_commits, parent_readme, repo_key):
+        """Process only the subset of forks that need processing"""
+        ahead_forks = []
+        show_costs = self.config_manager.get_show_costs_setting()
+        header_displayed = False
+        
+        for fork in forks_to_process:
+            fork_owner = fork['owner']
+            fork_name = fork['name']
+            fork_default_branch = fork.get('default_branch', 'main')
+            
+            # Process multi-branch analysis for this fork
+            fork_analysis = self._process_fork_branches(
+                owner, repo_name, parent_default_branch, fork_owner, fork_name, fork_default_branch,
+                max_branches_per_fork, min_commits_ahead, analyze_default_branch_always,
+                max_commits, parent_readme, repo_key
+            )
+            
+            if fork_analysis:
+                ahead_forks.append(fork_analysis)
+                
+                # Display header only once when first fork is found
+                if not header_displayed:
+                    self.display.display_forks_header(repo['name'], repo.get('url'))
+                    header_displayed = True
+                
+                # Process fork immediately for AI summary
+                fork_info = fork_analysis
+                # Build README sections for prompt
+                parent_readme_text = parent_readme if parent_readme else "No README found in parent repository."
+                
+                fork_readme = fork_info.get('readme')
+                fork_readme_diff = self.fetcher.generate_readme_diff(parent_readme, fork_readme)
+                
+                # Build fork data for AI summary (with multi-branch support)
+                fork_data = {
+                    'name': repo['name'],
+                    'fork_name': fork_info['fork_name'],
+                    'commits_ahead': fork_info['commits_ahead'],
+                    'commits': fork_info['commits'],  # Multi-branch commits for summary
+                    'branches': fork_info['branches'],  # Branch breakdown for display
+                    'parent_readme': parent_readme_text,
+                    'fork_readme_diff': fork_readme_diff
+                }
+                
+                # Generate AI summary
+                try:
+                    result = self.generator.generate_summary(fork_data)
+                    summary = result['summary']
+                    
+                    # Track cost for this fork
+                    if result.get('cost_info'):
+                        self.cost_tracker.track_usage(result['cost_info'])
+                    
+                    # Display fork analysis
+                    self.display.display_fork_summary(
+                        repo['name'], 
+                        fork_info['fork_name'],
+                        f"https://github.com/{fork_info['fork_name']}",
+                        fork_info['commits_ahead'],
+                        summary,
+                        fork_info['branches'],
+                        fork_info.get('last_commit_timestamp')
+                    )
+                    
+                    # Update state with this fork's analysis
+                    StateManager.update_fork_state(self.state, repo_key, fork_info)
+                    
+                except Exception as e:
+                    if self.config_manager.get_boolean_setting('debug'):
+                        self.display.display_error(f"Summary generation failed for {fork_info['fork_name']}: {e}")
+        
+        return ahead_forks
     
     def _prioritize_branches(self, branches, default_branch, max_branches):
         """Prioritize branches for analysis"""

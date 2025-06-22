@@ -246,3 +246,15 @@ class TerminalDisplay:
         title = self._add_cost_to_title(title, cost_info, show_costs)
         self._print_summary_section(title, summary)
         print()  # Add spacing after branch summary
+
+    def display_no_changes(self, repo_name):
+        """Display when repository has no changes (early exit)"""
+        print(f"✓ {repo_name}: No new updates since last check")
+
+    def display_selective_processing(self, repo_name, changed_branches, new_branches):
+        """Display when processing subset of branches"""
+        print(f"⏳ {repo_name}: Processing {len(changed_branches)} changed, {len(new_branches)} new branches")
+
+    def display_no_fork_changes(self, repo_name):
+        """Display when no forks need processing"""
+        print(f"✓ {repo_name}: No fork updates since last check")

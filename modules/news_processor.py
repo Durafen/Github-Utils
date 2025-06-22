@@ -15,10 +15,40 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
         return 'news'
     
     def _process_repository(self, repo):
-        """Enhanced repository processing with always-on branch analysis"""
+        """Optimized repository processing with early-exit state validation"""
         owner, repo_name, repo_key = self.extract_repo_info(repo['url'])
         
-        # ENHANCED: Fork-aware main branch processing (like forks module)
+        # PHASE 1: Quick repository state check (early exit optimization)
+        current_main_sha = self.fetcher.get_current_main_sha(owner, repo_name)
+        if not current_main_sha:
+            if self.config_manager.get_boolean_setting('debug'):
+                self.display.display_error(f"Could not get main branch SHA for {repo['name']}")
+            return
+        
+        # PHASE 2: Early exit if main branch unchanged and save_state enabled
+        if self.config_manager.get_boolean_setting('save_state', True):
+            if StateManager.main_branch_unchanged(self.state, repo_key, current_main_sha):
+                # Quick branch discovery for selective processing
+                current_branches = self.fetcher.get_branch_shas_only(owner, repo_name)
+                current_branch_shas = {b['name']: b['commit']['sha'] for b in current_branches}
+                
+                needs_processing, new_branches, changed_branches = StateManager.needs_repository_processing(
+                    self.state, repo_key, current_main_sha, current_branch_shas
+                )
+                
+                if not needs_processing:
+                    if self.config_manager.get_boolean_setting('debug'):
+                        self.display.display_no_updates(repo['name'])
+                    return
+                
+                # Process only changed/new branches (selective processing)
+                return self._process_selective_branches(repo, owner, repo_name, repo_key, new_branches, changed_branches, current_branch_shas)
+        
+        # PHASE 3: Fallback to full processing for changed main branch or no state
+        return self._process_full_repository(repo, owner, repo_name, repo_key, current_main_sha)
+
+    def _process_full_repository(self, repo, owner, repo_name, repo_key, current_main_sha):
+        """Full repository processing (original logic)"""
         last_commit = self.state.get(repo_key, {}).get('last_commit')
         last_release = self.state.get(repo_key, {}).get('last_release')
         
@@ -52,7 +82,7 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
         releases = self.fetcher.get_releases(owner, repo_name, limit=max_releases)
         has_newer_releases = self.has_newer_releases(releases, last_release)
         
-        # ALWAYS: Individual branch analysis (no conditional)
+        # Individual branch analysis
         individual_branches = self._analyze_individual_branches(owner, repo_name, repo_key, default_branch)
         
         # ENHANCED: Summary generation logic - includes main branch commits OR branch updates
@@ -252,3 +282,104 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
                     branch_data['commits'],
                     branch_data['commits_ahead']
                 )
+
+    def _process_selective_branches(self, repo, owner, repo_name, repo_key, new_branches, changed_branches, current_branch_shas):
+        """Process only specific branches that have changed or are new"""
+        if self.config_manager.get_boolean_setting('debug'):
+            self.display.display_loading(f"Processing {len(new_branches)} new, {len(changed_branches)} changed branches for {repo['name']}")
+        
+        # Get default branch for comparison
+        default_branch = self.fetcher.get_default_branch(owner, repo_name)
+        
+        # Filter to only branches we care about (exclude default branch from individual analysis)
+        branches_to_process = [b for b in (new_branches + changed_branches) if b != default_branch]
+        
+        if not branches_to_process:
+            if self.config_manager.get_boolean_setting('debug'):
+                self.display.display_no_updates(repo['name'])
+            return
+        
+        # Process only the subset that needs processing
+        individual_branches = self._process_branch_subset(branches_to_process, owner, repo_name, repo_key, default_branch, current_branch_shas)
+        
+        if individual_branches:
+            # Display repository headline only (no main branch summary)
+            version = self.fetcher.get_latest_version(owner, repo_name)
+            self.display.display_news_summary(
+                repo['name'], "", None, False, repo['url'], version, None, None
+            )
+            
+            # Process individual branch summaries
+            show_costs = self.config_manager.get_show_costs_setting()
+            for branch_data in individual_branches:
+                if self.config_manager.get_boolean_setting('debug'):
+                    self.display.display_loading(f"Processing branch {branch_data['branch_name']}...")
+                
+                result = self.generator.generate_summary(branch_data)
+                
+                # Display individual branch summary
+                self.display.display_branch_summary(
+                    branch_data['branch_name'], 
+                    branch_data['commits_ahead'],
+                    result['summary'], 
+                    result.get('cost_info'),
+                    show_costs,
+                    branch_data.get('is_default', False),
+                    branch_data.get('last_commit_timestamp')
+                )
+            
+            # Update state for processed branches
+            for branch_data in individual_branches:
+                StateManager.update_branch_state(
+                    self.state, repo_key,
+                    branch_data['branch_name'],
+                    branch_data['commits'],
+                    branch_data['commits_ahead']
+                )
+
+    def _process_branch_subset(self, branches_to_process, owner, repo_name, repo_key, default_branch, current_branch_shas):
+        """Process a specific subset of branches"""
+        individual_branch_data = []
+        max_commits = self.config_manager.get_int_setting('max_commits', 10)
+        min_commits = self.config_manager.get_int_setting('min_branch_commits', 1)
+        
+        for branch_name in branches_to_process:
+            # Get comparison data first (now uses adaptive logic)
+            comparison = self.fetcher.get_branch_comparison(owner, repo_name, default_branch, branch_name)
+            commits_ahead = comparison.get('ahead_by', 0)
+            
+            # Get commits for AI analysis if branch has commits ahead
+            if commits_ahead > 0:
+                all_branch_commits = self.fetcher.get_branch_commits_since_base(
+                    owner, repo_name, branch_name, default_branch, limit=max_commits
+                )
+                
+                # Filter branch commits based on saved state
+                repo_state = self.state.get(repo_key, {})
+                branch_states = repo_state.get('branches', {})
+                last_branch_commit = branch_states.get(branch_name, {}).get('last_commit')
+                
+                branch_commits = filter_commits_since_last_processed(all_branch_commits, last_branch_commit)
+            else:
+                branch_commits = []
+            
+            if commits_ahead >= min_commits and branch_commits:
+                # Get latest commit timestamp for this specific branch
+                try:
+                    branch_timestamp = self.fetcher.get_latest_commit_timestamp(owner, repo_name, branch_name)
+                except Exception:
+                    branch_timestamp = None
+                
+                # Prepare individual branch data for AI summary
+                branch_data = {
+                    'name': f"{repo_name} - {branch_name} branch",
+                    'branch_name': branch_name,
+                    'commits_ahead': len(branch_commits),
+                    'commits': branch_commits,
+                    'is_default': False,
+                    'parent_branch': default_branch,
+                    'last_commit_timestamp': branch_timestamp,
+                }
+                individual_branch_data.append(branch_data)
+        
+        return individual_branch_data
