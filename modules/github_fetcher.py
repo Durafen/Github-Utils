@@ -1,12 +1,24 @@
 import subprocess
 import json
 import re
+import os
 
 
 class GitHubFetcher:
     def __init__(self):
         """GitHub CLI fetcher - uses gh command for API access"""
+        self._setup_token_cache()
         self._check_gh_auth()
+    
+    def _setup_token_cache(self):
+        """Cache GH_TOKEN once to eliminate auth overhead"""
+        try:
+            result = subprocess.run(['gh', 'auth', 'token'], 
+                                   capture_output=True, text=True)
+            if result.returncode == 0:
+                os.environ['GH_TOKEN'] = result.stdout.strip()
+        except:
+            pass  # Fallback to normal auth
     
     def _check_gh_auth(self):
         """Verify gh CLI is authenticated"""
@@ -51,9 +63,9 @@ class GitHubFetcher:
     def get_commits(self, owner, repo, since=None, limit=10, branch=None):
         """Fetch commits using gh CLI"""
         if branch:
-            endpoint = f'repos/{owner}/{repo}/commits?sha={branch}'
+            endpoint = f'repos/{owner}/{repo}/commits?sha={branch}&per_page={limit}'
         else:
-            endpoint = f'repos/{owner}/{repo}/commits'
+            endpoint = f'repos/{owner}/{repo}/commits?per_page={limit}'
         
         cmd = ['gh', 'api', endpoint]
         if since:
@@ -65,7 +77,7 @@ class GitHubFetcher:
     
     def get_releases(self, owner, repo, limit=5):
         """Fetch releases using gh CLI"""
-        cmd = ['gh', 'api', f'repos/{owner}/{repo}/releases', '--jq', f'.[:{limit}]']
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/releases?per_page={limit}', '--jq', f'.[:{limit}]']
         return self._run_gh_command(cmd)
     
     def get_latest_commit_sha(self, owner, repo):
@@ -106,7 +118,7 @@ class GitHubFetcher:
     
     def get_forks(self, owner, repo, limit=20):
         """Get active forks list with basic info using gh CLI"""
-        cmd = ['gh', 'api', f'repos/{owner}/{repo}/forks', 
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/forks?per_page={limit}', 
                '--jq', f'.[:{limit}] | .[] | {{name, full_name, owner: .owner.login, default_branch, updated_at, private}}']
         
         return self._run_gh_command_multiline_json(cmd)

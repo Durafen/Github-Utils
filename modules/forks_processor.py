@@ -14,6 +14,10 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
         self.debug_logger = DebugLogger(self.config_manager)
         self.cost_tracker = CostTracker()
     
+    @property
+    def state_type(self):
+        return 'forks'
+    
     def _process_repository(self, repo):
         """Process repository for active forks ahead of parent"""
         # Reset cost tracking at start of each repository

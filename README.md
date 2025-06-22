@@ -1,12 +1,11 @@
 # gh-utils: AI-Powered GitHub Repository Monitor
 
-An intelligent GitHub repository monitoring tool that generates AI-powered summaries of repository activity using Claude CLI or OpenAI API.
+gh-utils turns every repo you watch into a personal GitHub newsfeed—pulling fresh commits & releases and delivering bite-sized AI summaries right in your terminal.
 
 ## 🚀 Features
 
 - **Repository News Tracking**: Monitor commits and releases across multiple repositories with individual branch analysis
 - **Fork Analysis**: Analyze repository forks that are ahead of their parent with multi-branch support
-
 - **Dual AI Provider Support**: Choose between Claude CLI and OpenAI API
 - **Incremental State Management**: Only processes repositories with new activity
 - **Terminal-Friendly Output**: Clean, formatted summaries without markdown clutter
@@ -14,6 +13,7 @@ An intelligent GitHub repository monitoring tool that generates AI-powered summa
 - **Cost Tracking**: Monitor AI token usage and estimated costs
 - **Enhanced Fork Analysis**: Intelligent README comparison for better fork insights
 - **Multi-Branch Analysis**: Separate AI summaries for individual repository branches
+- **Repository Aliases**: Process repositories using short aliases instead of full URLs (`./gh-utils.py news ccusage`)
 - **Cross-Repository Comparison**: Handles both regular repos and forks with intelligent branching
 
 ## 📦 Installation
@@ -109,6 +109,28 @@ another-repo = https://github.com/org/project
 ./gh-utils.py clear <name>                # Reset tracking state
 ```
 
+### Alias-Based Processing
+
+Process configured repositories using their alias names:
+
+```bash
+# Process repository by alias (defaults to news)
+./gh-utils.py ccusage
+./gh-utils.py my-repo
+
+# Process specific repository by alias for news
+./gh-utils.py news ccusage
+./gh-utils.py news my-repo
+
+# Process specific repository by alias for forks
+./gh-utils.py forks ccusage
+./gh-utils.py forks my-repo
+
+# Alternative syntax: alias first, then processor
+./gh-utils.py ccusage news
+./gh-utils.py ccusage forks
+```
+
 ### URL-Based Processing
 
 Process any GitHub repository without adding to configuration:
@@ -158,8 +180,16 @@ exclude_private_forks = true   # Skip private forks
 # Subsequent runs - only new activity (with save_state=true)
 ./gh-utils.py news
 
-# Add a new repository
+# Add a new repository with alias
 ./gh-utils.py add https://github.com/torvalds/linux kernel
+
+# Process specific repository by alias
+./gh-utils.py news kernel
+./gh-utils.py forks kernel
+
+# Alternative alias syntax
+./gh-utils.py kernel           # defaults to news
+./gh-utils.py kernel forks     # explicit forks
 
 # Check what forks are ahead of your repositories
 ./gh-utils.py forks
@@ -209,6 +239,11 @@ Branches:
 ./gh-utils.py add https://github.com/octocat/Hello-World test-repo
 ./gh-utils.py list
 ./gh-utils.py remove test-repo
+
+# Test alias functionality
+./gh-utils.py news test-repo     # Process by alias
+./gh-utils.py test-repo          # Alias first (defaults to news)
+./gh-utils.py test-repo forks    # Alias with explicit processor
 
 # Test both AI providers
 ./gh-utils.py news

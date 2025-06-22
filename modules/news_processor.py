@@ -10,6 +10,10 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
     def __init__(self, repositories=None):
         super().__init__(template_name='summary', repositories=repositories)
     
+    @property
+    def state_type(self):
+        return 'news'
+    
     def _process_repository(self, repo):
         """Enhanced repository processing with always-on branch analysis"""
         owner, repo_name, repo_key = self.extract_repo_info(repo['url'])
@@ -49,7 +53,7 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
         has_newer_releases = self.has_newer_releases(releases, last_release)
         
         # ALWAYS: Individual branch analysis (no conditional)
-        individual_branches = self._analyze_individual_branches(owner, repo_name, repo_key)
+        individual_branches = self._analyze_individual_branches(owner, repo_name, repo_key, default_branch)
         
         # ENHANCED: Summary generation logic - includes main branch commits OR branch updates
         needs_summary = (
@@ -126,15 +130,12 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
             if self.config_manager.get_boolean_setting('debug'):
                 self.display.display_no_updates(repo['name'])
 
-    def _analyze_individual_branches(self, owner, repo_name, repo_key):
+    def _analyze_individual_branches(self, owner, repo_name, repo_key, default_branch):
         """Analyze repository branches individually for separate summaries"""
         try:
             # Configuration
             max_branches = self.config_manager.get_int_setting('max_branches_per_repo', 5)
             min_commits = self.config_manager.get_int_setting('min_branch_commits', 1)
-            
-            # Get repository branch structure
-            default_branch = self.fetcher.get_default_branch(owner, repo_name)
             all_branches = self.fetcher.get_repository_branches(owner, repo_name, limit=max_branches * 2)
             
             if not all_branches:

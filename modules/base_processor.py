@@ -24,17 +24,23 @@ class BaseProcessor(ABC):
             print(f"❌ Setup Error: {e}")
             raise
     
+    @property
+    @abstractmethod
+    def state_type(self):
+        """Return the state type for this processor"""
+        pass
+    
     def _load_state_if_enabled(self):
         """Load state if save_state is enabled"""
         if self.config_manager.get_boolean_setting('save_state', 'true'):
-            return self.config_manager.load_state()
+            return self.config_manager.load_state(self.state_type)
         return {}
     
     def _save_state_if_enabled(self):
         """Save state if save_state is enabled"""
         if self.config_manager.get_boolean_setting('save_state', 'true'):
             try:
-                self.config_manager.save_state(self.state)
+                self.config_manager.save_state(self.state, self.state_type)
                 if self.config_manager.get_boolean_setting('debug'):
                     print("✅ State saved successfully")
             except Exception as e:

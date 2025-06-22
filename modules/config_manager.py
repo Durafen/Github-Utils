@@ -4,6 +4,7 @@ import configparser
 import shutil
 import sys
 from datetime import datetime
+from .comment_preserving_parser import CommentPreservingINIParser
 
 
 class ConfigManager:
@@ -148,60 +149,145 @@ class ConfigManager:
         # Fallback to [settings] section for backward compatibility
         return self.get_boolean_setting('show_costs', False)
     
-    def load_state(self):
-        """Load last checked commits from state.json"""
+    def get_state_filename(self, state_type='news'):
+        """Get appropriate state filename based on type"""
+        script_dir = os.path.dirname(self.state_path)
+        if state_type == 'forks':
+            return os.path.join(script_dir, 'forks_state.json')
+        elif state_type == 'news':
+            return os.path.join(script_dir, 'news_state.json')
+        else:
+            raise ValueError(f"Unknown state_type: {state_type}")
+
+    def load_state(self, state_type='news'):
+        """Load state from appropriate file"""
+        state_file = self.get_state_filename(state_type)
+        
+        # Check if state file already exists
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, 'r') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid JSON in {state_file}")
+        
+        # If state file doesn't exist, check for legacy migration
+        self.migrate_legacy_state()
+        
+        # Try loading again after potential migration
         try:
-            with open(self.state_path, 'r') as f:
+            with open(state_file, 'r') as f:
                 return json.load(f)
         except FileNotFoundError:
             return {}
         except json.JSONDecodeError:
-            raise ValueError(f"Invalid JSON in {self.state_path}")
+            raise ValueError(f"Invalid JSON in {state_file}")
     
-    def save_state(self, state_data):
-        """Save updated state back to state.json"""
-        with open(self.state_path, 'w') as f:
+    def save_state(self, state_data, state_type='news'):
+        """Save updated state to appropriate file"""
+        state_file = self.get_state_filename(state_type)
+        with open(state_file, 'w') as f:
             json.dump(state_data, f, indent=2)
     
+    def migrate_legacy_state(self):
+        """One-time migration from state.json to separate files"""
+        legacy_file = self.state_path  # This is the original state.json path
+        if not os.path.exists(legacy_file):
+            return  # No migration needed
+        
+        try:
+            # Load legacy state 
+            with open(legacy_file, 'r') as f:
+                legacy_state = json.load(f)
+            
+            # If legacy state is empty, just remove it
+            if not legacy_state:
+                os.remove(legacy_file)
+                return
+            
+            # Split into news and forks data
+            news_state = {}
+            forks_state = {}
+            
+            for repo_key, repo_data in legacy_state.items():
+                # Extract news data
+                news_data = {}
+                for key in ['last_check', 'last_commit', 'last_release', 'branches', 'last_branch_check']:
+                    if key in repo_data:
+                        news_data[key] = repo_data[key]
+                if news_data:
+                    news_state[repo_key] = news_data
+                    
+                # Extract forks data  
+                forks_data = {}
+                for key in ['last_check', 'processed_forks', 'last_fork_check']:
+                    if key in repo_data:
+                        forks_data[key] = repo_data[key]
+                if forks_data:
+                    forks_state[repo_key] = forks_data
+            
+            # Save to separate files
+            if news_state:
+                self.save_state(news_state, 'news')
+            if forks_state:
+                self.save_state(forks_state, 'forks')
+            
+            # Backup original and remove
+            backup_file = f"{legacy_file}.migrated"
+            if os.path.exists(backup_file):
+                os.remove(legacy_file)  # Remove original if backup exists
+            else:
+                os.rename(legacy_file, backup_file)
+                print(f"✅ Migrated legacy state to separate files. Backup: {backup_file}")
+            
+        except Exception as e:
+            print(f"⚠️  Warning: Could not migrate legacy state: {e}")
+            # Don't fail - just continue with empty state
+    
     def add_repository(self, name, url):
-        """Add a repository to config.txt"""
-        config = self._load_config()
-        
-        # Ensure repositories section exists
-        if 'repositories' not in config:
-            config.add_section('repositories')
-        
-        # Add the repository
-        config.set('repositories', name, url)
-        
-        # Save the updated config
-        self._save_config(config)
+        """Add a repository to config.txt with comment preservation"""
+        try:
+            # Use comment-preserving parser to maintain formatting
+            parser = CommentPreservingINIParser(self.config_path)
+            parser.parse_file()
+            parser.add_repository(name, url)
+            parser.save_file()
+            
+            # Clear cached config to force reload
+            self._config = None
+            
+        except Exception as e:
+            raise ValueError(f"Failed to add repository '{name}': {e}")
     
     def remove_repository(self, identifier):
-        """Remove a repository by name or URL"""
-        config = self._load_config()
-        
-        if 'repositories' not in config:
-            return False
-        
-        # Try to remove by name first
-        if config.has_option('repositories', identifier):
-            config.remove_option('repositories', identifier)
-            self._save_config(config)
-            return True
-        
-        # Try to remove by URL
-        for name, url in config.items('repositories'):
-            if url == identifier:
-                config.remove_option('repositories', name)
-                self._save_config(config)
+        """Remove a repository by name or URL with comment preservation"""
+        try:
+            # Use comment-preserving parser to maintain formatting
+            parser = CommentPreservingINIParser(self.config_path)
+            parser.parse_file()
+            
+            if parser.remove_repository(identifier):
+                parser.save_file()
+                # Clear cached config to force reload
+                self._config = None
                 return True
-        
-        return False
+            else:
+                return False
+                
+        except Exception as e:
+            raise ValueError(f"Failed to remove repository '{identifier}': {e}")
     
     def list_repositories(self):
         """List all configured repositories"""
         return self.load_repositories()
+    
+    def find_repository_by_alias(self, alias):
+        """Find repository by alias name (case-insensitive)"""
+        repos = self.load_repositories()
+        for repo in repos:
+            if repo['name'].lower() == alias.lower():
+                return repo
+        return None
     
     def clear_state(self, repo_name=None):
         """Clear state for a specific repository or all repositories"""
@@ -255,7 +341,3 @@ class ConfigManager:
                 print("📋 Please create config.txt with your settings")
                 sys.exit(1)
     
-    def _save_config(self, config):
-        """Save configuration back to file"""
-        with open(self.config_path, 'w') as f:
-            config.write(f)
