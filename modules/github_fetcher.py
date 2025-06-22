@@ -5,20 +5,43 @@ import os
 
 
 class GitHubFetcher:
-    def __init__(self):
+    def __init__(self, debug_logger=None):
         """GitHub CLI fetcher - uses gh command for API access"""
+        self.debug_logger = debug_logger
         self._setup_token_cache()
         self._check_gh_auth()
     
     def _setup_token_cache(self):
-        """Cache GH_TOKEN once to eliminate auth overhead"""
+        """Enhanced token caching with validation and proper error handling"""
         try:
             result = subprocess.run(['gh', 'auth', 'token'], 
-                                   capture_output=True, text=True)
+                                   capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
-                os.environ['GH_TOKEN'] = result.stdout.strip()
-        except:
-            pass  # Fallback to normal auth
+                token = result.stdout.strip()
+                if token and self._validate_token(token):
+                    os.environ['GH_TOKEN'] = token
+                    if self.debug_logger:
+                        self.debug_logger.debug("✅ Token caching successful")
+                else:
+                    if self.debug_logger:
+                        self.debug_logger.debug("⚠️  Token validation failed - using normal auth")
+            else:
+                if self.debug_logger:
+                    self.debug_logger.debug(f"⚠️  gh auth token failed: {result.stderr}")
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as e:
+            if self.debug_logger:
+                self.debug_logger.debug(f"⚠️  Token caching failed: {e}")
+            # Fallback to normal auth without caching
+    
+    def _validate_token(self, token):
+        """Validate token works with a lightweight API call"""
+        try:
+            # Quick validation - check if token allows basic API access
+            result = subprocess.run(['gh', 'api', 'user'], 
+                                   capture_output=True, text=True, timeout=5)
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError):
+            return False
     
     def _check_gh_auth(self):
         """Verify gh CLI is authenticated"""

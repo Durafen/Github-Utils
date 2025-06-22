@@ -190,59 +190,138 @@ class ConfigManager:
             json.dump(state_data, f, indent=2)
     
     def migrate_legacy_state(self):
-        """One-time migration from state.json to separate files"""
+        """Safely migrate old state.json to separate news_state.json and forks_state.json"""
         legacy_file = self.state_path  # This is the original state.json path
         if not os.path.exists(legacy_file):
             return  # No migration needed
-        
-        try:
-            # Load legacy state 
-            with open(legacy_file, 'r') as f:
-                legacy_state = json.load(f)
             
-            # If legacy state is empty, just remove it
+        try:
+            # Step 1: Validate legacy state is readable and parse it
+            legacy_state = self._validate_legacy_state(legacy_file)
             if not legacy_state:
-                os.remove(legacy_file)
                 return
             
-            # Split into news and forks data
-            news_state = {}
-            forks_state = {}
+            # Step 2: Split into news and forks data
+            news_state, forks_state = self._split_legacy_state(legacy_state)
             
-            for repo_key, repo_data in legacy_state.items():
-                # Extract news data
-                news_data = {}
-                for key in ['last_check', 'last_commit', 'last_release', 'branches', 'last_branch_check']:
-                    if key in repo_data:
-                        news_data[key] = repo_data[key]
-                if news_data:
-                    news_state[repo_key] = news_data
-                    
-                # Extract forks data  
-                forks_data = {}
-                for key in ['last_check', 'processed_forks', 'last_fork_check']:
-                    if key in repo_data:
-                        forks_data[key] = repo_data[key]
-                if forks_data:
-                    forks_state[repo_key] = forks_data
-            
-            # Save to separate files
-            if news_state:
-                self.save_state(news_state, 'news')
-            if forks_state:
-                self.save_state(forks_state, 'forks')
-            
-            # Backup original and remove
-            backup_file = f"{legacy_file}.migrated"
-            if os.path.exists(backup_file):
-                os.remove(legacy_file)  # Remove original if backup exists
-            else:
-                os.rename(legacy_file, backup_file)
-                print(f"✅ Migrated legacy state to separate files. Backup: {backup_file}")
+            # Step 3: Perform atomic migration with validation
+            self._create_atomic_migration(legacy_state, news_state, forks_state, legacy_file)
             
         except Exception as e:
             print(f"⚠️  Warning: Could not migrate legacy state: {e}")
             # Don't fail - just continue with empty state
+    
+    def _validate_legacy_state(self, legacy_file):
+        """Validate legacy state file is readable and non-empty"""
+        try:
+            with open(legacy_file, 'r') as f:
+                legacy_state = json.load(f)
+            
+            # If legacy state is empty, just remove it safely
+            if not legacy_state:
+                backup_file = f"{legacy_file}.empty_backup"
+                os.rename(legacy_file, backup_file)
+                print(f"✅ Removed empty legacy state file. Backup: {backup_file}")
+                return None
+                
+            return legacy_state
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"⚠️  Warning: Legacy state file corrupted or unreadable: {e}")
+            # Create backup of corrupted file
+            backup_file = f"{legacy_file}.corrupted_backup"
+            os.rename(legacy_file, backup_file)
+            print(f"✅ Backed up corrupted legacy state: {backup_file}")
+            return None
+    
+    def _split_legacy_state(self, legacy_state):
+        """Split legacy state into news and forks data"""
+        news_state = {}
+        forks_state = {}
+        
+        for repo_key, repo_data in legacy_state.items():
+            # Extract news data
+            news_data = {}
+            for key in ['last_check', 'last_commit', 'last_release', 'branches', 'last_branch_check']:
+                if key in repo_data:
+                    news_data[key] = repo_data[key]
+            if news_data:
+                news_state[repo_key] = news_data
+                
+            # Extract forks data  
+            forks_data = {}
+            for key in ['last_check', 'processed_forks', 'last_fork_check']:
+                if key in repo_data:
+                    forks_data[key] = repo_data[key]
+            if forks_data:
+                forks_state[repo_key] = forks_data
+        
+        return news_state, forks_state
+    
+    def _create_atomic_migration(self, legacy_state, news_state, forks_state, legacy_file):
+        """Perform atomic state file creation with validation"""
+        temp_files = []
+        
+        try:
+            # Step 1: Create temporary files
+            news_temp = None
+            forks_temp = None
+            
+            if news_state:
+                news_temp = "news_state.json.tmp"
+                with open(news_temp, 'w') as f:
+                    json.dump(news_state, f, indent=2)
+                temp_files.append(news_temp)
+                
+            if forks_state:
+                forks_temp = "forks_state.json.tmp"
+                with open(forks_temp, 'w') as f:
+                    json.dump(forks_state, f, indent=2)
+                temp_files.append(forks_temp)
+            
+            # Step 2: Validate temporary files are correct
+            self._validate_migration_files(news_temp, forks_temp, news_state, forks_state)
+            
+            # Step 3: Atomically move temp files to final locations
+            if news_temp:
+                os.rename(news_temp, "news_state.json")
+                temp_files.remove(news_temp)
+                
+            if forks_temp:
+                os.rename(forks_temp, "forks_state.json")
+                temp_files.remove(forks_temp)
+            
+            # Step 4: Only after successful migration, backup and remove original
+            backup_file = f"{legacy_file}.migrated"
+            os.rename(legacy_file, backup_file)
+            print(f"✅ Migrated legacy state to separate files. Backup: {backup_file}")
+            
+        except Exception as e:
+            # Rollback: clean up any temporary files
+            self._rollback_migration(temp_files)
+            raise e
+    
+    def _validate_migration_files(self, news_temp, forks_temp, expected_news, expected_forks):
+        """Validate migration files are written correctly"""
+        if news_temp:
+            with open(news_temp, 'r') as f:
+                actual_news = json.load(f)
+            if actual_news != expected_news:
+                raise ValueError("News state migration validation failed")
+                
+        if forks_temp:
+            with open(forks_temp, 'r') as f:
+                actual_forks = json.load(f)
+            if actual_forks != expected_forks:
+                raise ValueError("Forks state migration validation failed")
+    
+    def _rollback_migration(self, temp_files):
+        """Rollback failed migration by cleaning up temp files"""
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except Exception:
+                pass  # Best effort cleanup
     
     def add_repository(self, name, url):
         """Add a repository to config.txt with comment preservation"""

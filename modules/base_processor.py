@@ -17,7 +17,9 @@ class BaseProcessor(ABC):
         
         # Initialize components with error handling
         try:
-            self.fetcher = GitHubFetcher()
+            # Pass debug_logger to GitHubFetcher if available
+            debug_logger = getattr(self, 'debug_logger', None)
+            self.fetcher = GitHubFetcher(debug_logger=debug_logger)
             self.generator = SummaryGenerator(self.config_manager, template_name)
             self.display = TerminalDisplay()
         except RuntimeError as e:

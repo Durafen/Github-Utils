@@ -99,7 +99,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
                 return
             
             # Stage 3: Full processing only for changed forks
-            ahead_forks = self._process_fork_subset(forks_to_process, owner, repo_name, parent_default_branch, max_branches_per_fork, min_commits_ahead, analyze_default_branch_always, max_commits, parent_readme, repo_key)
+            ahead_forks = self._process_fork_subset(forks_to_process, repo, owner, repo_name, parent_default_branch, max_branches_per_fork, min_commits_ahead, analyze_default_branch_always, max_commits, parent_readme, repo_key)
             
             # Show message if no forks found after processing all
             if not ahead_forks:
@@ -394,7 +394,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
         except:
             return True  # Process if timestamp comparison fails
 
-    def _process_fork_subset(self, forks_to_process, owner, repo_name, parent_default_branch, max_branches_per_fork, min_commits_ahead, analyze_default_branch_always, max_commits, parent_readme, repo_key):
+    def _process_fork_subset(self, forks_to_process, repo, owner, repo_name, parent_default_branch, max_branches_per_fork, min_commits_ahead, analyze_default_branch_always, max_commits, parent_readme, repo_key):
         """Process only the subset of forks that need processing"""
         ahead_forks = []
         show_costs = self.config_manager.get_show_costs_setting()
