@@ -1,4 +1,5 @@
 from datetime import datetime
+from .state_manager import StateManager
 
 class RepositoryProcessorMixin:
     """Mixin providing shared GitHub data processing logic"""
@@ -6,7 +7,7 @@ class RepositoryProcessorMixin:
     def extract_repo_info(self, repo_url):
         """Extract owner, repo name, and repo key from URL"""
         owner, repo_name = self.fetcher.extract_owner_repo(repo_url)
-        return owner, repo_name, f"{owner}/{repo_name}"
+        return owner, repo_name, f"{owner}/{repo_name}".lower()
     
     def has_newer_commits(self, commits, last_commit, owner, repo_name):
         """Check if there are newer commits than last processed"""
@@ -29,15 +30,10 @@ class RepositoryProcessorMixin:
     def update_repository_state(self, repo_key, has_newer_commits, has_newer_releases, 
                                commits, releases, owner, repo_name):
         """Update state for repository with new commit/release info"""
-        updated_state = self.state.get(repo_key, {})
-        updated_state['last_check'] = datetime.now().isoformat()
-        
-        if has_newer_commits and commits:
-            latest_sha = self.fetcher.get_latest_commit_sha(owner, repo_name)
-            updated_state['last_commit'] = latest_sha
-            
-        if has_newer_releases and releases:
-            latest_release_id = releases[0]['id']
-            updated_state['last_release'] = str(latest_release_id)
-        
-        self.state[repo_key] = updated_state
+        StateManager.update_basic_repository_state(
+            self.state, repo_key,
+            commits if has_newer_commits else None,
+            releases if has_newer_releases else None,
+            self.fetcher, owner, repo_name
+        )
+    

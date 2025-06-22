@@ -4,12 +4,16 @@ Summarize recent activity for {repo_name} repository:
 
 {releases_section}
 
-Please provide a concise summary up 5-10 bullet points highlighting the major changes and updates.
+{branches_section}
+
+Please provide a concise summary up {bullet_count} bullet points highlighting the major changes and updates.
 Focus on the most important features, bug fixes, and improvements, what adds value to user.
 Don't repeat yourself, summarize, if you don't have anything new to add, don't add.
 Up to 15 words per bullet.
 Sort the bullets, so first will be the major changes and news.
 Don't include version numbers (unless it major version update).
+
+If branch analysis is included, highlight cross-branch development patterns and significant feature branches.
 
 IMPORTANT: This output will be displayed in a terminal, no markdown formatting.
 Do not add a title, headline - start directly with the bullet points. Do not include the 🤖 emoji or any other leading text.

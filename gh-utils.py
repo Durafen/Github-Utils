@@ -21,7 +21,7 @@ def create_temp_repository(url):
             'name': repo_name,
             'url': url
         }
-    except Exception as e:
+    except Exception:
         # Fallback: extract name from URL manually
         repo_name = url.rstrip('/').split('/')[-1] if '/' in url else url
         return {
@@ -50,7 +50,7 @@ def add_command():
             owner, repo_name = fetcher.extract_owner_repo(url)
             name = repo_name
         except:
-            name = url.split('/')[-1] if '/' in url else url
+            name = url.rstrip('/').split('/')[-1] if '/' in url else url
     
     try:
         config_manager = ConfigManager()

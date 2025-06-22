@@ -25,6 +25,22 @@ class GitHubFetcher:
             return json.loads(result.stdout)
         return result.stdout if not parse_json else []
     
+    def _run_gh_command_multiline_json(self, cmd):
+        """Run gh command and parse multiple JSON objects (one per line)"""
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            return []  # Return empty list instead of raising exception
+        
+        objects = []
+        if result.stdout.strip():
+            for line in result.stdout.strip().split('\n'):
+                if line.strip():
+                    try:
+                        objects.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue  # Skip invalid JSON lines
+        return objects
+    
     def extract_owner_repo(self, url):
         """Extract owner/repo from GitHub URL"""
         match = re.match(r'https://github.com/([^/]+)/([^/]+)', url)
@@ -32,9 +48,14 @@ class GitHubFetcher:
             return match.group(1), match.group(2)
         raise ValueError(f"Invalid GitHub URL: {url}")
     
-    def get_commits(self, owner, repo, since=None, limit=10):
+    def get_commits(self, owner, repo, since=None, limit=10, branch=None):
         """Fetch commits using gh CLI"""
-        cmd = ['gh', 'api', f'repos/{owner}/{repo}/commits']
+        if branch:
+            endpoint = f'repos/{owner}/{repo}/commits?sha={branch}'
+        else:
+            endpoint = f'repos/{owner}/{repo}/commits'
+        
+        cmd = ['gh', 'api', endpoint]
         if since:
             cmd.extend(['--jq', f'map(select(.sha != "{since}"))[:{limit}]'])
         else:
@@ -53,6 +74,15 @@ class GitHubFetcher:
         result = self._run_gh_command(cmd, parse_json=False)
         return result.strip().replace('"', '')
     
+    def get_latest_commit_timestamp(self, owner, repo, branch=None):
+        """Get timestamp of the latest commit using gh CLI"""
+        if branch:
+            cmd = ['gh', 'api', f'repos/{owner}/{repo}/commits/{branch}', '--jq', '.commit.author.date']
+        else:
+            cmd = ['gh', 'api', f'repos/{owner}/{repo}/commits', '--jq', '.[0].commit.author.date']
+        result = self._run_gh_command(cmd, parse_json=False)
+        return result.strip().replace('"', '')
+    
     def get_latest_version(self, owner, repo):
         """Get the latest version from releases, fallback to tags"""
         try:
@@ -62,10 +92,13 @@ class GitHubFetcher:
                 return releases[0]['tag_name']
             
             # Fallback to tags
-            cmd = ['gh', 'api', f'repos/{owner}/{repo}/tags', '--jq', '.[0].name']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip().replace('"', '')
+            try:
+                cmd = ['gh', 'api', f'repos/{owner}/{repo}/tags', '--jq', '.[0].name']
+                result = self._run_gh_command(cmd, parse_json=False)
+                if result.strip():
+                    return result.strip().replace('"', '')
+            except RuntimeError:
+                pass
             
             return None
         except Exception:
@@ -76,34 +109,23 @@ class GitHubFetcher:
         cmd = ['gh', 'api', f'repos/{owner}/{repo}/forks', 
                '--jq', f'.[:{limit}] | .[] | {{name, full_name, owner: .owner.login, default_branch, updated_at, private}}']
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"Failed to fetch forks: {result.stderr}")
-        
-        # Parse multiple JSON objects on separate lines
-        forks = []
-        if result.stdout.strip():
-            for line in result.stdout.strip().split('\n'):
-                if line.strip():
-                    forks.append(json.loads(line))
-        return forks
+        return self._run_gh_command_multiline_json(cmd)
 
     def compare_fork_with_parent(self, parent_owner, parent_repo, fork_owner, fork_repo, fork_branch='main'):
         """Compare fork with parent repository using gh CLI"""
         cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_repo}/compare/{fork_branch}...{fork_owner}:{fork_repo}:{fork_branch}',
                '--jq', '{ahead_by, behind_by, status, commits: [.commits[] | {sha: .sha[0:7], message: .commit.message, author: .commit.author}], files: [.files[] | .filename]}']
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
+        try:
+            return self._run_gh_command(cmd)
+        except RuntimeError:
             # Fork comparison can fail for various reasons (branch mismatch, private repos, etc.)
             # Return empty result rather than failing completely
             return {'ahead_by': 0, 'behind_by': 0, 'status': 'error', 'commits': [], 'files': []}
-        
-        return json.loads(result.stdout) if result.stdout.strip() else {}
 
-    def get_fork_commits(self, fork_owner, fork_repo, limit=10):
+    def get_fork_commits(self, fork_owner, fork_repo, limit=10, branch=None):
         """Get commit details for fork (reuses existing get_commits pattern)"""
-        return self.get_commits(fork_owner, fork_repo, limit=limit)
+        return self.get_commits(fork_owner, fork_repo, limit=limit, branch=branch)
     
     def get_readme(self, owner, repo):
         """Get README content for repository using gh CLI"""
@@ -129,6 +151,7 @@ class GitHubFetcher:
         
         return None  # No README found
     
+    
     def readme_was_modified(self, comparison_result):
         """Check if README files were modified in the comparison result"""
         if not comparison_result or 'files' not in comparison_result:
@@ -145,16 +168,157 @@ class GitHubFetcher:
         
         return False
     
-    def compare_readme_content(self, parent_readme, fork_readme):
-        """Compare README content between parent and fork"""
+    def generate_readme_diff(self, parent_readme, fork_readme):
+        """Generate unified diff showing what changed with context"""
         if parent_readme is None and fork_readme is None:
-            return False  # Both are None, no difference
+            return "No README changes."
         
-        if parent_readme is None or fork_readme is None:
-            return True  # One is None, different
+        if parent_readme is None:
+            return "Fork added README (parent has no README)."
         
-        # Normalize content for comparison (strip whitespace, normalize line endings)
+        if fork_readme is None:
+            return "Fork removed README."
+        
+        # Normalize content for comparison
         parent_normalized = parent_readme.strip().replace('\r\n', '\n').replace('\r', '\n')
         fork_normalized = fork_readme.strip().replace('\r\n', '\n').replace('\r', '\n')
         
-        return parent_normalized != fork_normalized
+        if parent_normalized == fork_normalized:
+            return "No README changes."
+        
+        # Use difflib for proper sequential diff (not set-based)
+        import difflib
+        
+        parent_lines = parent_normalized.splitlines()
+        fork_lines = fork_normalized.splitlines()
+        
+        # Generate diff with NO context to minimize output
+        diff = list(difflib.unified_diff(
+            parent_lines,
+            fork_lines,
+            fromfile='parent/README',
+            tofile='fork/README',
+            lineterm='',
+            n=0  # No context lines
+        ))
+        
+        if not diff:
+            return "No README changes."
+        
+        # Extract ONLY actual changes (+ and - lines), no context, no headers
+        changes = []
+        for line in diff:
+            if line.startswith('+++') or line.startswith('---') or line.startswith('@@'):
+                continue  # Skip all headers and metadata
+            elif line.startswith('-') and len(line.strip()) > 1:
+                changes.append(line)
+            elif line.startswith('+') and len(line.strip()) > 1:
+                changes.append(line)
+            # Skip context lines (starting with ' ')
+        
+        if not changes:
+            return "No significant README changes."
+        
+        # Return all changes without limiting
+        return '\n'.join(changes)
+    
+    def get_fork_branches(self, fork_owner, fork_repo, limit=None):
+        """Get all branches for a fork repository using gh CLI"""
+        return self.get_repository_branches(fork_owner, fork_repo, limit)
+    
+    def get_repository_branches(self, owner, repo, limit=None):
+        """Get all branches for any repository using gh CLI"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches']
+        if limit:
+            cmd.extend(['--jq', f'.[:{limit}] | .[] | {{name, commit: {{sha, url}}, protected}}'])
+        else:
+            cmd.extend(['--jq', '.[] | {name, commit: {sha, url}, protected}'])
+        
+        return self._run_gh_command_multiline_json(cmd)
+    
+    def compare_branch_with_parent(self, parent_owner, parent_repo, parent_branch, fork_owner, fork_repo, fork_branch):
+        """Compare specific fork branch with specific parent branch using gh CLI"""
+        cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_repo}/compare/{parent_branch}...{fork_owner}:{fork_repo}:{fork_branch}',
+               '--jq', '{ahead_by, behind_by, status, commits: [.commits[] | {sha: .sha[0:7], message: .commit.message, author: .commit.author}], files: [.files[] | .filename]}']
+        
+        try:
+            return self._run_gh_command(cmd)
+        except RuntimeError:
+            # Branch comparison can fail for various reasons
+            return {'ahead_by': 0, 'behind_by': 0, 'status': 'error', 'commits': [], 'files': []}
+    
+    def filter_active_branches(self, branches, activity_days=30):
+        """Filter branches by recent activity (based on commit date)"""
+        from datetime import datetime, timedelta
+        
+        if not branches:
+            return []
+        
+        # For now, return all branches since we don't have commit date in branch list
+        # In a more advanced implementation, we'd fetch commit details for each branch
+        return branches
+    
+    def get_default_branch(self, owner, repo):
+        """Get the default branch for a repository"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}', '--jq', '.default_branch']
+        try:
+            result = self._run_gh_command(cmd, parse_json=False)
+            return result.strip().replace('"', '')
+        except RuntimeError:
+            return 'main'  # Fallback to 'main' if we can't determine
+    
+    def get_branch_commits(self, owner, repo, branch_name, since=None, limit=10):
+        """Get commits for a specific branch"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/commits', '--field', f'sha={branch_name}']
+        if since:
+            cmd.extend(['--jq', f'map(select(.sha != "{since}"))[:{limit}]'])
+        else:
+            cmd.extend(['--jq', f'.[:{limit}]'])
+        
+        return self._run_gh_command(cmd)
+    
+    def get_branch_commits_since_base(self, owner, repo, branch, base_branch, limit=None):
+        """Get commits in branch that are ahead of base branch (adaptive for forks/non-forks)"""
+        is_fork, parent_owner, parent_name = self.get_fork_info(owner, repo)
+        
+        if limit:
+            # Filter out merge commits (parents.length > 1) for cleaner branch analysis
+            jq_filter = f'.commits | map(select(.parents | length == 1))[:{limit}] | map({{sha: .sha, commit: {{message: .commit.message, author: .commit.author, committer: .commit.committer}}}})'
+        else:
+            jq_filter = '.commits | map(select(.parents | length == 1)) | map({sha: .sha, commit: {message: .commit.message, author: .commit.author, committer: .commit.committer}})'
+        
+        if is_fork:
+            # Cross-repository comparison for forks
+            cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{branch}', '--jq', jq_filter]
+        else:
+            # Same-repository comparison for non-forks
+            cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{branch}', '--jq', jq_filter]
+        
+        return self._run_gh_command(cmd)
+
+    def get_fork_info(self, owner, repo):
+        """Check if repository is a fork and get parent info"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}', '--jq', '{fork: .fork, parent: .parent}']
+        result = self._run_gh_command(cmd)
+        
+        is_fork = result.get('fork', False)
+        parent = result.get('parent')
+        
+        if is_fork and parent:
+            return True, parent['owner']['login'], parent['name']
+        return False, None, None
+
+    def get_branch_comparison(self, owner, repo, base_branch, compare_branch):
+        """Adaptive branch comparison: cross-repo for forks, same-repo for non-forks"""
+        is_fork, parent_owner, parent_name = self.get_fork_info(owner, repo)
+        
+        if is_fork:
+            # Cross-repository comparison for forks (like forks module)
+            cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
+                   '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+        else:
+            # Same-repository comparison for non-forks
+            cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
+                   '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+        
+        return self._run_gh_command(cmd)

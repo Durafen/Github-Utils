@@ -60,7 +60,7 @@ class ClaudeCLIProvider(AIProvider):
                 input=prompt,
                 capture_output=True,
                 text=True,
-                timeout=self.config_manager.get_int_setting('timeout', 60)
+                timeout=self.config_manager.get_ai_timeout()
             )
             
             self.debug_logger.debug(f"Claude subprocess completed with return code: {result.returncode}")
@@ -73,7 +73,7 @@ class ClaudeCLIProvider(AIProvider):
             
             return self._parse_stream_json_output(result.stdout)
         except subprocess.TimeoutExpired:
-            self.debug_logger.debug(f"Claude CLI timed out after {self.config_manager.get_int_setting('timeout', 60)}s")
+            self.debug_logger.debug(f"Claude CLI timed out after {self.config_manager.get_ai_timeout()}s")
             return "Summary generation timed out"
         except Exception as e:
             self.debug_logger.debug(f"Exception calling Claude: {str(e)}")
@@ -157,7 +157,7 @@ class OpenAIProvider(AIProvider):
         self.debug_logger = DebugLogger(config_manager)
         self.api_key = config_manager.get_openai_api_key()
         self.model = config_manager.get_ai_model() or 'gpt-4o'
-        self.timeout = config_manager.get_int_setting('timeout', 60)
+        self.timeout = config_manager.get_ai_timeout()
         
         if not self.api_key:
             raise ValueError(

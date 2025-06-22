@@ -4,15 +4,17 @@ An intelligent GitHub repository monitoring tool that generates AI-powered summa
 
 ## 🚀 Features
 
-- **Repository News Tracking**: Monitor commits and releases across multiple repositories
-- **Fork Analysis**: Analyze repository forks that are ahead of their parent
-- 
+- **Repository News Tracking**: Monitor commits and releases across multiple repositories with individual branch analysis
+- **Fork Analysis**: Analyze repository forks that are ahead of their parent with multi-branch support
+
 - **Dual AI Provider Support**: Choose between Claude CLI and OpenAI API
 - **Incremental State Management**: Only processes repositories with new activity
 - **Terminal-Friendly Output**: Clean, formatted summaries without markdown clutter
 - **Modular Architecture**: Extensible processor pattern for adding new analysis types
 - **Cost Tracking**: Monitor AI token usage and estimated costs
 - **Enhanced Fork Analysis**: Intelligent README comparison for better fork insights
+- **Multi-Branch Analysis**: Separate AI summaries for individual repository branches
+- **Cross-Repository Comparison**: Handles both regular repos and forks with intelligent branching
 
 ## 📦 Installation
 
@@ -135,8 +137,10 @@ show_costs = true              # Display AI token costs
 timeout = 30                   # AI provider timeout
 
 # News tracking
-max_commits = 10               # Maximum commits per repo
+max_commits = 50               # Maximum commits per repo
 max_releases = 10              # Maximum releases per repo
+max_branches_per_repo = 5      # Maximum branches to analyze per repo
+min_branch_commits = 1         # Minimum commits ahead for branch analysis
 
 # Fork analysis
 max_forks = 200                # Maximum forks to analyze
@@ -163,6 +167,38 @@ exclude_private_forks = true   # Skip private forks
 # Debug mode with detailed output
 # (set debug=true in config.txt first)
 ./gh-utils.py news
+```
+
+### Sample Output
+
+**News tracking with branch analysis:**
+```
+--------------------------------------------------------------------------------
+📊 my-repo Summary - v2.1.0 (+5) (2h ago) ($<0.001, 1,234 tokens)
+--------------------------------------------------------------------------------
+- Fixed critical bug in authentication system
+- Added new API endpoints for user management
+- Updated documentation with latest examples
+
+--------------------------------------------------------------------------------
+🌿 feature-branch (+3) (1h ago) ($<0.001, 456 tokens) 
+--------------------------------------------------------------------------------
+- Implemented advanced caching mechanism for better performance
+- Added comprehensive unit tests for new features
+```
+
+**Fork analysis:**
+```
+--------------------------------------------------------------------------------
+🍴 user/my-repo-fork (+12) (3h ago)
+--------------------------------------------------------------------------------
+Branches:
+  ├─ main: +8 commits ⭐
+  └─ experimental: +4 commits
+
+- Enhanced the core algorithm with machine learning capabilities
+- Added Docker support for easier deployment
+- Comprehensive refactoring of the authentication module
 ```
 
 ## 🧪 Testing

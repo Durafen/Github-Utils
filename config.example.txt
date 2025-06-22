@@ -6,6 +6,12 @@
 # AI provider: claude or openai
 provider = openai
 
+# AI execution timeout in seconds
+timeout = 30
+
+# Cost display: shows AI token usage and estimated costs after repository titles
+show_costs = true
+
 [openai]
 # OpenAI API key (get from https://platform.openai.com/api-keys)
 # NEVER commit your actual API key to git!
@@ -26,7 +32,6 @@ github-utils = https://github.com/Durafen/Github-Utils
 
 [settings]
 # General application settings
-timeout = 30
 
 # Debug mode: shows detailed logging and prompt previews
 debug = false
@@ -34,14 +39,33 @@ debug = false
 # State persistence: saves last checked commit/release for incremental updates
 save_state = true
 
-# Cost display: shows AI token usage and estimated costs after repository titles
-show_costs = true
-
 # Commits analysis settings
 # -------------------------
 # Maximum number of commits/releases to fetch per repository
 max_commits = 10
 max_releases = 10
+
+# Branch Analysis Settings (News Module) - Always Enabled
+# -------------------------------------------------------
+# Maximum branches to analyze per repository for news
+max_branches_per_repo = 5
+
+# Minimum commits ahead to report branch in news
+min_branch_commits = 1
+
+# Include default branch in analysis when ahead
+analyze_default_branch = false
+
+# Only analyze recently active branches (days)
+branch_activity_days = 30
+
+# Summary Bullet Count Settings
+# ------------------------------
+# Number of bullet points for main repository summaries
+main_summary_bullets = 5-10
+
+# Number of bullet points for branch summaries
+branch_summary_bullets = 2-5
 
 # Fork analysis settings
 # ----------------------
@@ -50,3 +74,9 @@ max_forks = 200
 
 # Minimum commits ahead to consider
 min_commits_ahead = 1
+
+# Maximum branches to analyze per fork
+max_branches_per_fork = 5
+
+# Always analyze default branch even if not ahead by min threshold
+analyze_default_branch_always = true

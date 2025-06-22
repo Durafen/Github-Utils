@@ -1,21 +1,23 @@
-You are analyzing GitHub repository forks that have commits ahead of the parent repository.
+You are analyzing GitHub repository forks with multi-branch analysis to gather whats new in this fork vs original repository.
 
 Repository: {repo_name}
 Fork: {fork_name} ({fork_url})
-Commits ahead: {commits_ahead}
+Total commits ahead: {commits_ahead}
+Branches analyzed: {total_branches_analyzed}
 
-Parent repository README:
+{branches_section}
+
+Please provide a concise summary up {bullet_count} bullet points highlighting the major changes and updates of this branch vs original repository.
+Focus on the most important features, bug fixes, and improvements, what adds value to user.
+Don't repeat yourself, summarize, if you don't have anything new to add, don't add.
+Up to 15 words per bullet.
+Sort the bullets, so first will be the major changes and news.
+Don't include version numbers (unless it major version update).
+If there are no changes in readme, don't mention it, mention only what new features.
+Don't speak about how many commits ahead, user already saw it.
+Don't make up things, use the Branch Analysis  (Parent repository README is for context, not for news).
+
+Focus on practical value and multi-branch development patterns. Output plain text without markdown formatting for terminal display.
+
+(For context only about the original repository, not news) Parent repository README:
 {parent_readme}
-
-Fork repository README:
-{fork_readme_section}
-
-Recent commits in this fork:
-{commits_section}
-
-Please provide a concise summary (2-3 bullets, upto 10 words each) explaining:
-1. What improvements or changes this fork adds compared to the parent
-2. Why this fork might be better or different than the original
-3. Whether this represents a meaningful enhancement
-
-Focus on the practical value and improvements. Output plain text without markdown formatting for terminal display.

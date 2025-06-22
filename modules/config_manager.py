@@ -75,7 +75,19 @@ class ConfigManager:
     
     def get_boolean_setting(self, key, default='false'):
         """Get a boolean setting value (converts 'true'/'false' strings to bool)"""
-        return self.get_setting(key, default).lower() == 'true'
+        # Handle case where default is already a boolean
+        if isinstance(default, bool):
+            default_str = 'true' if default else 'false'
+        else:
+            default_str = str(default)
+        
+        result = self.get_setting(key, default_str)
+        
+        # Handle case where result might be a boolean already
+        if isinstance(result, bool):
+            return result
+        
+        return str(result).lower() == 'true'
     
     def get_int_setting(self, key, default):
         """Get an integer setting value"""
@@ -109,6 +121,32 @@ class ConfigManager:
         # Fallback to config file
         config = self._load_config()
         return config.get('openai', 'api_key', fallback=None)
+    
+    def get_ai_timeout(self):
+        """Get AI timeout setting from [ai] section, fallback to [settings] for backward compatibility"""
+        config = self._load_config()
+        # Try [ai] section first
+        if config.has_option('ai', 'timeout'):
+            value = config.get('ai', 'timeout')
+            # Strip inline comments if value is a string
+            if isinstance(value, str) and '#' in value:
+                value = value.split('#')[0].strip()
+            return int(value)
+        # Fallback to [settings] section for backward compatibility
+        return self.get_int_setting('timeout', 60)
+    
+    def get_show_costs_setting(self):
+        """Get show_costs setting from [ai] section, fallback to [settings] for backward compatibility"""
+        config = self._load_config()
+        # Try [ai] section first
+        if config.has_option('ai', 'show_costs'):
+            value = config.get('ai', 'show_costs')
+            # Strip inline comments if value is a string
+            if isinstance(value, str) and '#' in value:
+                value = value.split('#')[0].strip()
+            return str(value).lower() == 'true'
+        # Fallback to [settings] section for backward compatibility
+        return self.get_boolean_setting('show_costs', False)
     
     def load_state(self):
         """Load last checked commits from state.json"""
