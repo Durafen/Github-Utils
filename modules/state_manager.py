@@ -233,53 +233,6 @@ class StateManager:
         needs_processing = main_changed or new_branches or changed_branches
         return needs_processing, new_branches, changed_branches
 
-    @staticmethod  
-    def get_stale_branches(state, repo_key, current_branch_shas):
-        """
-        Find branches that exist in state but not in current repo (deleted branches)
-        
-        Args:
-            state: The state dictionary to check
-            repo_key: Repository key (owner/repo format)
-            current_branch_shas: Dictionary of current branch_name -> sha
-            
-        Returns:
-            list: Names of stale branches to clean up
-        """
-        repo_state = state.get(repo_key, {})
-        saved_branches = repo_state.get('branches', {})
-        current_branch_names = set(current_branch_shas.keys())
-        saved_branch_names = set(saved_branches.keys())
-        
-        stale_branches = saved_branch_names - current_branch_names
-        return list(stale_branches)
-
-    @staticmethod
-    def bulk_branch_state_check(state, repo_key, branch_sha_map):
-        """
-        Check multiple branches at once for changes
-        
-        Args:
-            state: The state dictionary to check
-            repo_key: Repository key (owner/repo format)
-            branch_sha_map: Dictionary of branch_name -> sha
-            
-        Returns:
-            dict: Map of branch_name -> needs_processing (bool)
-        """
-        repo_state = state.get(repo_key, {})
-        saved_branches = repo_state.get('branches', {})
-        
-        processing_map = {}
-        for branch_name, current_sha in branch_sha_map.items():
-            if branch_name not in saved_branches:
-                processing_map[branch_name] = True  # New branch
-            else:
-                saved_sha = saved_branches[branch_name].get('last_commit')
-                processing_map[branch_name] = (saved_sha != current_sha)
-        
-        return processing_map
-
     @staticmethod
     def main_branch_unchanged(state, repo_key, current_main_sha):
         """
@@ -297,22 +250,3 @@ class StateManager:
         saved_main_sha = repo_state.get('last_commit')
         return saved_main_sha == current_main_sha
 
-    @staticmethod
-    def clean_stale_branches(state, repo_key, stale_branch_names):
-        """
-        Remove stale branches from state
-        
-        Args:
-            state: The state dictionary to update
-            repo_key: Repository key (owner/repo format)
-            stale_branch_names: List of branch names to remove
-        """
-        repo_state = state.get(repo_key, {})
-        if 'branches' not in repo_state:
-            return
-            
-        for branch_name in stale_branch_names:
-            if branch_name in repo_state['branches']:
-                del repo_state['branches'][branch_name]
-        
-        state[repo_key] = repo_state

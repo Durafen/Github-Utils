@@ -184,13 +184,27 @@ class NewsProcessor(BaseProcessor, RepositoryProcessorMixin):
                 # Get comparison data first (now uses adaptive logic)
                 comparison = self.fetcher.get_branch_comparison(owner, repo_name, default_branch, branch_name)
                 commits_ahead = comparison.get('ahead_by', 0)
+                is_orphan = comparison.get('is_orphan', False)
                 
-                # Get commits for AI analysis if branch has commits ahead
+                # Handle orphan branches as independent branches (like main)
+                if is_orphan:
+                    commits_ahead = 1  # Treat as having commits to process
+                
+                # Get commits for AI analysis if branch has commits ahead or is orphan
                 if commits_ahead > 0:
                     max_commits = self.config_manager.get_int_setting('max_commits', 10)
-                    all_branch_commits = self.fetcher.get_branch_commits_since_base(
-                        owner, repo_name, branch_name, default_branch, limit=max_commits
-                    )
+                    
+                    if is_orphan:
+                        # For orphan branches, get commits directly (can't compare with base)
+                        all_branch_commits = self.fetcher.get_commits(
+                            owner, repo_name, limit=max_commits, branch=branch_name
+                        )
+                        # Reverse to match compare API format (oldest first)
+                        all_branch_commits.reverse()
+                    else:
+                        all_branch_commits = self.fetcher.get_branch_commits_since_base(
+                            owner, repo_name, branch_name, default_branch, limit=max_commits
+                        )
                     
                     # Filter branch commits based on saved state (same logic as main branch)
                     repo_state = self.state.get(repo_key, {})

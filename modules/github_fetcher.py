@@ -146,21 +146,6 @@ class GitHubFetcher:
         
         return self._run_gh_command_multiline_json(cmd)
 
-    def compare_fork_with_parent(self, parent_owner, parent_repo, fork_owner, fork_repo, fork_branch='main'):
-        """Compare fork with parent repository using gh CLI"""
-        cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_repo}/compare/{fork_branch}...{fork_owner}:{fork_repo}:{fork_branch}',
-               '--jq', '{ahead_by, behind_by, status, commits: [.commits[] | {sha: .sha[0:7], message: .commit.message, author: .commit.author}], files: [.files[] | .filename]}']
-        
-        try:
-            return self._run_gh_command(cmd)
-        except RuntimeError:
-            # Fork comparison can fail for various reasons (branch mismatch, private repos, etc.)
-            # Return empty result rather than failing completely
-            return {'ahead_by': 0, 'behind_by': 0, 'status': 'error', 'commits': [], 'files': []}
-
-    def get_fork_commits(self, fork_owner, fork_repo, limit=10, branch=None):
-        """Get commit details for fork (reuses existing get_commits pattern)"""
-        return self.get_commits(fork_owner, fork_repo, limit=limit, branch=branch)
     
     def get_readme(self, owner, repo):
         """Get README content for repository using gh CLI"""
@@ -282,16 +267,6 @@ class GitHubFetcher:
             # Branch comparison can fail for various reasons
             return {'ahead_by': 0, 'behind_by': 0, 'status': 'error', 'commits': [], 'files': []}
     
-    def filter_active_branches(self, branches, activity_days=30):
-        """Filter branches by recent activity (based on commit date)"""
-        from datetime import datetime, timedelta
-        
-        if not branches:
-            return []
-        
-        # For now, return all branches since we don't have commit date in branch list
-        # In a more advanced implementation, we'd fetch commit details for each branch
-        return branches
     
     def get_default_branch(self, owner, repo):
         """Get the default branch for a repository"""
@@ -347,16 +322,23 @@ class GitHubFetcher:
         """Adaptive branch comparison: cross-repo for forks, same-repo for non-forks"""
         is_fork, parent_owner, parent_name = self.get_fork_info(owner, repo)
         
-        if is_fork:
-            # Cross-repository comparison for forks (like forks module)
-            cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
-                   '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
-        else:
-            # Same-repository comparison for non-forks
-            cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
-                   '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
-        
-        return self._run_gh_command(cmd)
+        try:
+            if is_fork:
+                # Cross-repository comparison for forks (like forks module)
+                cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
+                       '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+            else:
+                # Same-repository comparison for non-forks
+                cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
+                       '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+            
+            return self._run_gh_command(cmd)
+        except RuntimeError as e:
+            # Handle orphan branches (no common ancestor) - treat as independent branches
+            if "No common ancestor" in str(e):
+                return {'ahead_by': -1, 'behind_by': 0, 'is_orphan': True}
+            # Other errors - treat as no difference
+            return {'ahead_by': 0, 'behind_by': 0}
 
     def get_branch_shas_only(self, owner, repo, limit=None):
         """Get lightweight branch list with only names and SHAs for performance optimization"""
@@ -379,16 +361,6 @@ class GitHubFetcher:
         
         return self._run_gh_command_multiline_json(cmd)
 
-    def has_branch_changed(self, owner, repo, branch_name, last_known_sha):
-        """Check if single branch has new commits (ultra-lightweight)"""
-        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches/{branch_name}', '--jq', '.commit.sha']
-        try:
-            result = self._run_gh_command(cmd, parse_json=False)
-            current_sha = result.strip().replace('"', '')
-            return current_sha != last_known_sha
-        except RuntimeError:
-            # Branch may not exist or be accessible
-            return False
 
     def get_current_main_sha(self, owner, repo):
         """Get current main/default branch SHA (lightweight check)"""
@@ -400,17 +372,3 @@ class GitHubFetcher:
         except RuntimeError:
             return None
 
-    def get_branch_comparison_lightweight(self, owner, repo, base_branch, compare_branch, is_fork=False, parent_info=None):
-        """Lightweight version that returns only ahead_by count and latest SHA"""
-        if is_fork and parent_info:
-            parent_owner, parent_name = parent_info
-            cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
-                   '--jq', '{ahead_by: .ahead_by, latest_sha: (.commits[-1].sha // null)}']
-        else:
-            cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
-                   '--jq', '{ahead_by: .ahead_by, latest_sha: (.commits[-1].sha // null)}']
-        
-        try:
-            return self._run_gh_command(cmd)
-        except RuntimeError:
-            return {'ahead_by': 0, 'latest_sha': None}

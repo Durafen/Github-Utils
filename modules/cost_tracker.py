@@ -5,11 +5,6 @@ class CostTracker:
         self.total_cost = 0
         self.total_tokens = 0
     
-    def add_cost(self, cost_info):
-        """Add cost information from an AI call"""
-        if cost_info:
-            self.total_cost += cost_info.get('estimated_cost', 0)
-            self.total_tokens += cost_info.get('total_tokens', 0)
     
     def get_total_cost_info(self):
         """Get total cost information as dict"""
