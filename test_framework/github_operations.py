@@ -34,14 +34,12 @@ class GitHubOperations:
     def _check_github_auth(self):
         """Verify GitHub CLI authentication and setup git config"""
         try:
-            result = subprocess.run(['gh', 'auth', 'status'], 
-                                  capture_output=True, text=True, timeout=10)
+            result = self._run_command(['gh', 'auth', 'status'], timeout=10)
             if result.returncode != 0:
                 raise RuntimeError("GitHub CLI not authenticated. Run 'gh auth login'")
             
             # Get GitHub token for git operations
-            token_result = subprocess.run(['gh', 'auth', 'token'], 
-                                        capture_output=True, text=True, timeout=10)
+            token_result = self._run_command(['gh', 'auth', 'token'], timeout=10)
             if token_result.returncode == 0:
                 self.github_token = token_result.stdout.strip()
                 if self.debug:
@@ -55,16 +53,46 @@ class GitHubOperations:
             raise RuntimeError(f"GitHub authentication failed: {e}")
     
     def _run_command(self, cmd: List[str], cwd: Optional[str] = None, timeout: int = 30) -> subprocess.CompletedProcess:
-        """Run command with error handling"""
+        """Run command with error handling and real-time output"""
         try:
             if self.debug:
                 print(f"🔧 Running: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=timeout)
-            if result.returncode != 0 and self.debug:
-                print(f"❌ Command failed: {result.stderr}")
-            return result
-        except subprocess.TimeoutExpired:
-            raise RuntimeError(f"Command timed out after {timeout}s: {' '.join(cmd)}")
+            
+            # Use elegant real-time subprocess solution
+            captured_lines = []
+            with subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                cwd=cwd,
+                env={**os.environ, 'PYTHONUNBUFFERED': '1'}
+            ) as process:
+                
+                # Real-time output display and capture
+                for line in iter(process.stdout.readline, ''):
+                    if self.debug:
+                        print(line, end='')
+                    captured_lines.append(line)
+                
+                return_code = process.wait()
+            
+            # Create CompletedProcess-like object for compatibility
+            class CompletedProcessMock:
+                def __init__(self, returncode, stdout, stderr):
+                    self.returncode = returncode
+                    self.stdout = stdout
+                    self.stderr = stderr
+            
+            stdout = ''.join(captured_lines)
+            stderr = ""  # Combined with stdout above
+            
+            if return_code != 0 and self.debug:
+                print(f"❌ Command failed with return code: {return_code}")
+            
+            return CompletedProcessMock(return_code, stdout, stderr)
+            
         except Exception as e:
             raise RuntimeError(f"Command execution failed: {e}")
     

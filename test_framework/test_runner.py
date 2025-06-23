@@ -97,12 +97,24 @@ class HybridTestRunner:
     def _ensure_repository_in_config(self, repo_name: str, repo_url: str) -> bool:
         """Ensure repository is added to gh-utils configuration"""
         try:
-            result = subprocess.run([
+            captured_lines = []
+            
+            with subprocess.Popen([
                 'python3', self.gh_utils_script, 'add', repo_url, repo_name
-            ], capture_output=True, text=True, timeout=30)
+            ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1, cwd=self.project_root,
+            env={**os.environ, 'PYTHONUNBUFFERED': '1'}
+            ) as process:
+                
+                for line in iter(process.stdout.readline, ''):
+                    if self.debug:
+                        print(line, end='')
+                    captured_lines.append(line)
+                
+                return_code = process.wait()
             
             # It's OK if the repo already exists (non-zero exit code)
-            if self.debug and result.returncode == 0:
+            if self.debug and return_code == 0:
                 print(f"✅ Added repository {repo_name} to config")
             elif self.debug:
                 print(f"ℹ️  Repository {repo_name} already in config")
@@ -118,9 +130,10 @@ class HybridTestRunner:
                                 scenario_hint: Optional[str] = None, 
                                 timeout: int = 60,
                                 hide_execution_log: bool = False) -> Tuple[bool, str, str, float]:
-        """Execute gh-utils command with AI mocking and validation"""
+        """Execute gh-utils command with AI mocking and real-time output"""
         try:
             start_time = time.time()
+            captured_lines = []
             
             with self.ai_mocker.mock_ai_providers(scenario_hint):
                 print(f"🔧 Executing: python3 {self.gh_utils_script} {' '.join(command_args)}")
@@ -128,26 +141,34 @@ class HybridTestRunner:
                 if hide_execution_log:
                     print("[Output hidden for first run of phase]")
                 
-                # Always capture output for validation purposes
-                result = subprocess.run([
+                # Real-time subprocess execution with output capture
+                with subprocess.Popen([
                     'python3', self.gh_utils_script
-                ] + command_args, 
-                timeout=timeout, cwd=self.project_root, 
-                capture_output=True, text=True)
+                ] + command_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,  # Line buffered for real-time output
+                cwd=self.project_root,
+                env={**os.environ, 'PYTHONUNBUFFERED': '1'}
+                ) as process:
+                    
+                    # Real-time output display and capture
+                    for line in iter(process.stdout.readline, ''):
+                        if not hide_execution_log:
+                            print(line, end='')  # Real-time display
+                        captured_lines.append(line)  # Capture for validation
+                    
+                    return_code = process.wait()
                 
                 execution_time = time.time() - start_time
-                success = result.returncode == 0
-                stdout = result.stdout if result.stdout else ""
-                stderr = result.stderr if result.stderr else ""
+                success = return_code == 0
+                stdout = ''.join(captured_lines)
+                stderr = ""  # Combined with stdout above
                 
-                # Display output if not hidden
-                if not hide_execution_log:
-                    if stdout:
-                        print(stdout)
-                    if stderr:
-                        print(f"STDERR: {stderr}")
-                    if not stdout and not stderr:
-                        print("No output captured")
+                # Show completion message for hidden runs
+                if hide_execution_log and not success:
+                    print(f"Command failed with return code: {return_code}")
                 
                 # Perform advanced validation on the output
                 validation_success = True

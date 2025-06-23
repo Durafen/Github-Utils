@@ -11,7 +11,7 @@ delete_commits_after_phase = false
 # Control output display during test execution
 # When true: first run output is hidden (baseline establishment)
 # When false: all output is shown including first runs
-hide_first_run_output = false
+hide_first_run_output = true
 
 # [phases]
 # # Test framework runs 3 main phases:

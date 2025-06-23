@@ -96,11 +96,19 @@ class MainTestOrchestrator:
         print("🔍 Validating test environment...")
         
         try:
-            # Check GitHub CLI authentication
-            import subprocess
-            result = subprocess.run(['gh', 'auth', 'status'], 
-                                  capture_output=True, text=True, timeout=10)
-            if result.returncode != 0:
+            # Check GitHub CLI authentication with elegant real-time solution
+            captured_lines = []
+            with subprocess.Popen(['gh', 'auth', 'status'], 
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, bufsize=1,
+                                env={**os.environ, 'PYTHONUNBUFFERED': '1'}) as process:
+                
+                for line in iter(process.stdout.readline, ''):
+                    captured_lines.append(line)
+                
+                return_code = process.wait()
+            
+            if return_code != 0:
                 print("❌ GitHub CLI not authenticated. Run 'gh auth login'")
                 return False
             
