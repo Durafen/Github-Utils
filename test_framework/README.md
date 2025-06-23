@@ -274,21 +274,42 @@ The test framework uses a **git worktree + symlink setup** for cross-branch acce
 ```
 
 **Development Workflow:**
-```bash
-# Run tests from any branch in main project
-timeout 110 python3 test_framework/main_test.py --debug
 
-# Commit test framework changes from main project directory
+**🔍 Reading from Test Framework:**
+```bash
+# Read any test framework file (works from main project directory)
+cat test_framework/main_test.py
+cat test_framework/settings.txt
+cat test_framework/README.md
+
+# Edit test framework files (symlink provides live access)
+# Changes are immediately visible in both directories
+```
+
+**📝 Committing Test Framework Changes:**
+```bash
+# Option 1: Commit from main project directory (recommended)
 git -C ../github-utils-tests add test_framework/
 git -C ../github-utils-tests commit -m "test: improve validation and framework components"
-# Note: DO NOT push test framework changes to remote
+git -C ../github-utils-tests status  # Verify commit went to test_framework branch
 
-# Alternative: Navigate to worktree directory
+# Option 2: Navigate to worktree directory
 cd ../github-utils-tests
 git add test_framework/ && git commit -m "test: improve validation"
-# Note: DO NOT push test framework changes to remote
+git status  # Should show clean working tree on test_framework branch
 cd ../github-utils  # Back to main development
+
+# Verify commits are on correct branch
+git -C ../github-utils-tests log --oneline -3  # Shows test framework commits
+git log --oneline -3  # Shows main app commits (different branch)
 ```
+
+**🌳 How the Git Worktree Works:**
+- `test_framework/` in main project → **symlink** → `../github-utils-tests/test_framework/`
+- Reading: Works directly through symlink from any branch
+- Writing: Files update in both locations instantly (same inode)
+- Committing: Must use `git -C ../github-utils-tests` or `cd` to worktree
+- Branches: Main project commits go to current branch, worktree commits go to `test_framework` branch
 
 **Benefits:**
 - ✅ **Universal Access**: Test framework available from any branch
