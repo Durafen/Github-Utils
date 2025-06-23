@@ -1,5 +1,0 @@
-# Core requirements - no external packages needed for basic functionality
-# The tool uses only Python standard library modules
-
-# Optional: OpenAI API support (only needed if using provider=openai)
-openai>=1.0.0
