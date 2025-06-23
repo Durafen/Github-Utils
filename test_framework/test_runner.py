@@ -35,11 +35,21 @@ class HybridTestRunner:
         self.validator = TestValidator(debug=debug)
         self.test_results = []
         
-        # Project paths
-        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Project paths - find the actual main project directory
+        # Handle both direct execution and symlinked execution
+        current_file = os.path.abspath(__file__)
+        current_dir = os.path.dirname(current_file)
+        
+        # If we're in a symlinked test_framework, resolve to main project
+        if 'github-utils-tests' in current_dir:
+            # We're in the worktree, main project is ../github-utils
+            self.project_root = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'github-utils')
+        else:
+            # We're in the main project directory
+            self.project_root = os.path.dirname(current_dir)
         
         # Initialize config manager for repository URL lookups
-        sys.path.append(self.project_root)
+        sys.path.insert(0, self.project_root)
         from modules.config_manager import ConfigManager
         self.config_manager = ConfigManager()
         

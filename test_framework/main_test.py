@@ -189,9 +189,9 @@ class MainTestOrchestrator:
                 ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline')),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_main')),
-                ('Create branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
+                ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
                 ('Test news after branch commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_branch')),
-                ('Create multi-branch commits', lambda: self._create_multi_branch_commits('ccusage')),
+                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ccusage')),
                 ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('test-ccusage', 'news_multi')),
             ])
         ]
@@ -211,9 +211,9 @@ class MainTestOrchestrator:
                 ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline')),
                 ('Create main branch commit', lambda: self._create_main_commit('testing')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('testing', 'news_main')),
-                ('Create branch commit', lambda: self._create_branch_commit('testing', 'test-feature')),
+                ('Create branch commit', lambda: self._create_branch_commit_dynamic('testing')),
                 ('Test news after branch commit', lambda: self.runner.test_news_detection('testing', 'news_branch')),
-                ('Create multi-branch commits', lambda: self._create_multi_branch_commits('testing')),
+                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('testing')),
                 ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('testing', 'news_multi')),
             ])
         ]
