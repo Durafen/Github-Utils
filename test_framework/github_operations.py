@@ -147,7 +147,9 @@ class GitHubOperations:
                 # Show the actual GitHub repository owner/name
                 repo_url = self.test_repos.get(repo_name, '')
                 if 'github.com/' in repo_url:
-                    repo_path = repo_url.split('github.com/')[-1].rstrip('.git')
+                    repo_path = repo_url.split('github.com/')[-1]
+                    if repo_path.endswith('.git'):
+                        repo_path = repo_path[:-4]
                     print(f"📝 Commit: {repo_path}/{branch}")
                 else:
                     print(f"📝 Commit: {repo_name}/{branch}")
@@ -245,6 +247,70 @@ class GitHubOperations:
                 print(f"⚠️ Branch cleanup failed: {e}")
             return False
     
+    def get_available_branches(self, repo_name: str) -> List[str]:
+        """Get list of available branches for a repository using GitHub CLI"""
+        try:
+            # Get GitHub URL for the repo
+            repo_url = self.test_repos.get(repo_name)
+            if not repo_url:
+                if self.debug:
+                    print(f"❌ Repository {repo_name} not found in test_repos")
+                return []
+            
+            # Extract owner/repo from URL
+            if 'github.com/' not in repo_url:
+                if self.debug:
+                    print(f"❌ Invalid GitHub URL: {repo_url}")
+                return []
+            
+            repo_path = repo_url.split('github.com/')[-1]
+            if repo_path.endswith('.git'):
+                repo_path = repo_path[:-4]
+            
+            # Use GitHub CLI to get branches
+            result = self._run_command(['gh', 'api', f'repos/{repo_path}/branches', '--jq', '.[].name'])
+            
+            if result.returncode == 0:
+                branches = [branch.strip() for branch in result.stdout.strip().split('\n') if branch.strip()]
+                if self.debug:
+                    print(f"✅ Found branches for {repo_name}: {branches}")
+                return branches
+            else:
+                if self.debug:
+                    print(f"❌ Failed to get branches for {repo_name}: {result.stderr}")
+                return []
+                
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Error getting branches for {repo_name}: {e}")
+            return []
+    
+    def get_last_non_main_branch(self, repo_name: str) -> Optional[str]:
+        """Get the last non-main branch for a repository"""
+        try:
+            branches = self.get_available_branches(repo_name)
+            if not branches:
+                return None
+            
+            # Filter out main/master branches
+            non_main_branches = [b for b in branches if b not in ['main', 'master']]
+            
+            if not non_main_branches:
+                if self.debug:
+                    print(f"ℹ️  No non-main branches found for {repo_name}")
+                return None
+            
+            # Return the last one (assumes most recently created/alphabetically last)
+            last_branch = non_main_branches[-1]
+            if self.debug:
+                print(f"✅ Selected last non-main branch for {repo_name}: {last_branch}")
+            return last_branch
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Error getting last non-main branch for {repo_name}: {e}")
+            return None
+
     def get_repository_url(self, repo_name: str) -> Optional[str]:
         """Get repository URL by name"""
         return self.test_repos.get(repo_name)

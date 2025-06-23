@@ -135,8 +135,11 @@ class AIMockingManager:
     
     def _mock_claude_subprocess(self, cmd, **kwargs):
         """Mock subprocess calls for Claude CLI while letting GitHub CLI through"""
-        # Let GitHub CLI calls pass through using original function to avoid recursion
+        # Ensure proper timeout handling for GitHub CLI calls
         if cmd and len(cmd) > 0 and ('gh' in cmd[0] or 'git' in cmd[0]):
+            # Add default timeout if not specified to prevent hanging
+            if 'timeout' not in kwargs:
+                kwargs['timeout'] = 30
             return self.original_subprocess_run(cmd, **kwargs)
         
         # Mock Claude CLI calls
@@ -157,6 +160,9 @@ class AIMockingManager:
             return mock_result
         
         # For other commands, use original function to avoid recursion
+        # Add default timeout if not specified
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 30
         return self.original_subprocess_run(cmd, **kwargs)
     
     @contextmanager

@@ -120,25 +120,22 @@ class MainTestOrchestrator:
         self.reporter.start_reporting_session()
         
         # Test Type 1: Forks Analysis
-        if self.debug:
-            print("\n🍴 TEST TYPE 1: FORKS ANALYSIS")
-            print("-" * 50)
+        print("\n🍴 TEST PHASE 1: FORKS ANALYSIS")
+        print("=" * 60)
         
         forks_results = self._run_forks_analysis_tests()
         self.reporter.add_test_results('forks_analysis', forks_results)
         
         # Test Type 2: News about Forks (using test-ccusage alias)
-        if self.debug:
-            print("\n📰 TEST TYPE 2: NEWS ABOUT FORKS")
-            print("-" * 50)
+        print("\n📰 TEST PHASE 2: NEWS ABOUT FORKS")
+        print("=" * 60)
         
         news_forks_results = self._run_news_about_forks_tests()
         self.reporter.add_test_results('news_about_forks', news_forks_results)
         
         # Test Type 3: News about Regular Repository
-        if self.debug:
-            print("\n📰 TEST TYPE 3: NEWS ABOUT REGULAR REPOSITORY")
-            print("-" * 50)
+        print("\n📰 TEST PHASE 3: NEWS ABOUT REGULAR REPOSITORY")
+        print("=" * 60)
         
         news_regular_results = self._run_news_about_regular_tests()
         self.reporter.add_test_results('news_about_regular', news_regular_results)
@@ -163,15 +160,16 @@ class MainTestOrchestrator:
         return overall_success_rate >= 0.8  # 80% success rate threshold
     
     def _run_forks_analysis_tests(self) -> list:
-        """Run forks analysis test scenarios with 7-step validation cycle"""
+        """Run forks analysis test scenarios with 8-step validation cycle"""
         scenarios = [
-            ('forks_7step_analysis', [
+            ('forks_8step_analysis', [
+                ('Clear repository states', lambda: self._clear_all_repository_states()),
                 ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline')),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_main')),
-                ('Create branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
+                ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
                 ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_branch')),
-                ('Create multi-branch commits', lambda: self._create_multi_branch_commits('ccusage')),
+                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ccusage')),
                 ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ccusage', 'forks_multi')),
             ])
         ]
@@ -229,6 +227,25 @@ class MainTestOrchestrator:
         return results
     
     # Helper methods (same as in TestScenariosManager but simplified)
+    def _clear_all_repository_states(self) -> bool:
+        """Clear repository states for all test repositories"""
+        test_repos = ['ccusage', 'test-ccusage', 'testing']
+        success = True
+        
+        for repo_name in test_repos:
+            try:
+                repo_success = self.runner.clear_repository_state(repo_name)
+                if self.debug:
+                    status = "✅" if repo_success else "⚠️"
+                    print(f"{status} Cleared state for {repo_name}")
+                # Don't fail overall if individual repo clear fails (may not have state)
+            except Exception as e:
+                if self.debug:
+                    print(f"⚠️ Failed to clear state for {repo_name}: {e}")
+                # Continue with other repos
+        
+        return success
+    
     def _create_main_commit(self, repo_name: str) -> bool:
         timestamp = int(time.time())
         message = f"Test main branch commit - {timestamp}"
@@ -241,6 +258,30 @@ class MainTestOrchestrator:
         timestamp = int(time.time())
         message = f"Test {branch_name} branch commit - {timestamp}"
         return self.runner.create_test_commit(repo_name, branch_name, message)
+    
+    def _create_branch_commit_dynamic(self, repo_name: str) -> bool:
+        """Create branch commit using last non-main branch, or fall back to hardcoded"""
+        # Try to get last non-main branch
+        branch_name = self.runner.github_ops.get_last_non_main_branch(repo_name)
+        
+        if not branch_name:
+            # Fall back to creating test-feature branch
+            branch_name = 'test-feature'
+            if self.debug:
+                print(f"ℹ️  No non-main branches found for {repo_name}, using {branch_name}")
+            
+            # Create the branch first
+            if not self._create_test_branch(repo_name, branch_name):
+                return False
+        
+        timestamp = int(time.time())
+        message = f"Test {branch_name} branch commit - {timestamp}"
+        success = self.runner.create_test_commit(repo_name, branch_name, message)
+        
+        if self.debug and success:
+            print(f"✅ Created commit on {repo_name}/{branch_name}")
+        
+        return success
     
     def _create_multi_branch_commits(self, repo_name: str) -> bool:
         """Create commits on both main and test-feature branches"""
@@ -255,6 +296,32 @@ class MainTestOrchestrator:
         branch_success = self.runner.create_test_commit(
             repo_name, 'test-feature', f"Test multi-branch feature commit - {timestamp}"
         )
+        
+        return main_success and branch_success
+    
+    def _create_multi_branch_commits_dynamic(self, repo_name: str) -> bool:
+        """Create commits on both main and last non-main branch"""
+        timestamp = int(time.time())
+        
+        # Create commit on main branch
+        main_success = self.runner.create_test_commit(
+            repo_name, 'main', f"Test multi-branch main commit - {timestamp}"
+        )
+        
+        # Get last non-main branch or use test-feature
+        branch_name = self.runner.github_ops.get_last_non_main_branch(repo_name)
+        if not branch_name:
+            branch_name = 'test-feature'
+            # Create the branch if it doesn't exist
+            self._create_test_branch(repo_name, branch_name)
+        
+        # Create commit on the selected branch
+        branch_success = self.runner.create_test_commit(
+            repo_name, branch_name, f"Test multi-branch {branch_name} commit - {timestamp}"
+        )
+        
+        if self.debug:
+            print(f"✅ Created multi-branch commits: main + {branch_name}")
         
         return main_success and branch_success
     

@@ -59,12 +59,13 @@ python3 test_framework/main_test.py --no-save-reports
 
 ### Test Workflow
 
-Each test follows a **7-step validation cycle**:
+Each test follows a **8-step validation cycle**:
 
-1. ✅ **Clear repository state** → Reset tracking for fresh run
+0. 🧹 **Clear all repository states** → Reset tracking for all test repos
+1. 📰 **Run detection to clear news** → Clean slate for fresh run
 2. 🔨 **Create main branch commit** → Push real changes to GitHub
 3. 📰 **Run detection command** → Test main branch news detection
-4. 🌿 **Create feature branch commit** → Push to feature branch
+4. 🌿 **Create feature branch commit** → Push to last non-main branch
 5. 📰 **Run detection command** → Test branch news detection
 6. 🔨🌿 **Create commits on both branches** → Test multi-branch scenario
 7. 📰 **Run detection command** → Validate comprehensive detection
