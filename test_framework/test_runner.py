@@ -141,8 +141,13 @@ class HybridTestRunner:
                 stderr = result.stderr if result.stderr else ""
                 
                 # Display output if not hidden
-                if not hide_execution_log and stdout:
-                    print(stdout)
+                if not hide_execution_log:
+                    if stdout:
+                        print(stdout)
+                    if stderr:
+                        print(f"STDERR: {stderr}")
+                    if not stdout and not stderr:
+                        print("No output captured")
                 
                 # Perform advanced validation on the output
                 validation_success = True

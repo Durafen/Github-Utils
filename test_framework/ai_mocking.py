@@ -139,7 +139,7 @@ class AIMockingManager:
         if cmd and len(cmd) > 0 and ('gh' in cmd[0] or 'git' in cmd[0]):
             # Add default timeout if not specified to prevent hanging
             if 'timeout' not in kwargs:
-                kwargs['timeout'] = 30
+                kwargs['timeout'] = 900
             return self.original_subprocess_run(cmd, **kwargs)
         
         # Mock Claude CLI calls
@@ -162,7 +162,7 @@ class AIMockingManager:
         # For other commands, use original function to avoid recursion
         # Add default timeout if not specified
         if 'timeout' not in kwargs:
-            kwargs['timeout'] = 30
+            kwargs['timeout'] = 900
         return self.original_subprocess_run(cmd, **kwargs)
     
     @contextmanager

@@ -7,6 +7,12 @@
 # When false: commits persist for manual inspection (debug mode)
 delete_commits_after_phase = false
 
+[display]
+# Control output display during test execution
+# When true: first run output is hidden (baseline establishment)
+# When false: all output is shown including first runs
+hide_first_run_output = false
+
 # [phases]
 # # Test framework runs 3 main phases:
 # # 1. forks_analysis    - Tests ./gh-utils.py forks ccusage

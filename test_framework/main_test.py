@@ -53,7 +53,7 @@ class MainTestOrchestrator:
     
     def _load_settings(self) -> dict:
         """Load settings from settings.txt file"""
-        settings = {'delete_commits_after_phase': True}  # Default
+        settings = {}
         
         try:
             import configparser
@@ -65,14 +65,27 @@ class MainTestOrchestrator:
                 
                 if 'cleanup' in config:
                     settings['delete_commits_after_phase'] = config.getboolean('cleanup', 'delete_commits_after_phase', fallback=True)
+                
+                if 'display' in config:
+                    settings['hide_first_run_output'] = config.getboolean('display', 'hide_first_run_output', fallback=True)
                     
                 if self.debug:
                     print(f"📋 Settings loaded from {settings_file}")
             else:
+                # Fallback defaults only if file doesn't exist
+                settings = {
+                    'delete_commits_after_phase': True,
+                    'hide_first_run_output': True
+                }
                 if self.debug:
                     print("📋 Settings file not found, using defaults")
                     
         except Exception as e:
+            # Fallback defaults only on error
+            settings = {
+                'delete_commits_after_phase': True,
+                'hide_first_run_output': True
+            }
             if self.debug:
                 print(f"⚠️ Error loading settings: {e}, using defaults")
                 
@@ -195,7 +208,7 @@ class MainTestOrchestrator:
         scenarios = [
             ('forks_8step_analysis', [
                 ('Clear repository states', lambda: self._clear_all_repository_states()),
-                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline', hide_execution_log=True)),
+                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_main')),
                 ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
@@ -228,7 +241,7 @@ class MainTestOrchestrator:
         """Run news about forks test scenarios with 7-step validation cycle"""
         scenarios = [
             ('news_forks_7step_analysis', [
-                ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline', hide_execution_log=True)),
+                ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_main')),
                 ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
@@ -261,7 +274,7 @@ class MainTestOrchestrator:
         """Run news about regular repository test scenarios with 7-step validation cycle"""
         scenarios = [
             ('news_regular_7step_analysis', [
-                ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline', hide_execution_log=True)),
+                ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('testing')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('testing', 'news_main')),
                 ('Create branch commit', lambda: self._create_branch_commit_dynamic('testing')),
