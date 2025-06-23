@@ -125,27 +125,66 @@ class HybridTestRunner:
             with self.ai_mocker.mock_ai_providers(scenario_hint):
                 print(f"🔧 Executing: python3 {self.gh_utils_script} {' '.join(command_args)}")
                 
-                # Capture output if hiding execution log
                 if hide_execution_log:
                     print("[Output hidden for first run of phase]")
-                    result = subprocess.run([
-                        'python3', self.gh_utils_script
-                    ] + command_args, 
-                    timeout=timeout, cwd=self.project_root, 
-                    capture_output=True, text=True)
-                else:
-                    result = subprocess.run([
-                        'python3', self.gh_utils_script
-                    ] + command_args, 
-                    timeout=timeout, cwd=self.project_root)
+                
+                # Always capture output for validation purposes
+                result = subprocess.run([
+                    'python3', self.gh_utils_script
+                ] + command_args, 
+                timeout=timeout, cwd=self.project_root, 
+                capture_output=True, text=True)
                 
                 execution_time = time.time() - start_time
                 success = result.returncode == 0
+                stdout = result.stdout if result.stdout else ""
+                stderr = result.stderr if result.stderr else ""
+                
+                # Display output if not hidden
+                if not hide_execution_log and stdout:
+                    print(stdout)
+                
+                # Perform advanced validation on the output
+                validation_success = True
+                validation_issues = []
+                
+                # Only apply enhanced validation to non-first runs (when output is not hidden)
+                # First runs are supposed to be empty/baseline and have hidden output
+                if success and stdout and not hide_execution_log:  
+                    command_type = ' '.join(command_args)
+                    
+                    # Skip validation for clear commands (they're supposed to have minimal output)
+                    if 'clear' not in command_type.lower():
+                        # Content density validation - detects empty sections
+                        if not self.validator.validate_content_density(stdout, command_type):
+                            validation_success = False
+                            validation_issues.append("Content density validation failed")
+                        
+                        # Section completeness validation - detects broken AI generation
+                        if not self.validator.validate_section_completeness(stdout, command_type):
+                            validation_success = False
+                            validation_issues.append("Section completeness validation failed")
+                        
+                        # If validation fails, override the success status
+                        if not validation_success:
+                            success = False
+                            if self.debug:
+                                print(f"🚨 VALIDATION FAILURE: {', '.join(validation_issues)}")
+                                print(f"   Command reported success but output validation failed!")
+                            else:
+                                # Always show validation failures even in non-debug mode
+                                print(f"🚨 CRITICAL VALIDATION FAILURE!")
+                                print(f"   {', '.join(validation_issues)}")
+                                print(f"   This indicates the main gh-utils program has bugs!")
                 
                 status = "✅" if success else "❌"
                 print(f"{status} Command completed in {execution_time:.2f}s")
                 
-                return success, "", "", execution_time
+                # Add validation warning if issues found
+                if validation_issues:
+                    print(f"⚠️  Validation issues: {', '.join(validation_issues)}")
+                
+                return success, stdout, stderr, execution_time
                 
         except subprocess.TimeoutExpired:
             execution_time = time.time() - start_time

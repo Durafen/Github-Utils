@@ -153,6 +153,7 @@ The framework features **improved visual formatting** with cleaner phase separat
 - **⚡ Fast AI Responses**: Mocked AI providers eliminate API delays and costs
 - **📊 Comprehensive Reporting**: Detailed reports with success rates and timing
 - **🔍 Deep Validation**: Tests command success, output patterns, state updates, and performance
+- **🚨 Enhanced Validation**: Detects broken AI generation and empty output sections
 - **🧹 Automatic Cleanup**: Cleans up temporary files and test artifacts
 - **🛡️ Error Recovery**: Continues testing even if individual scenarios fail
 
@@ -213,6 +214,7 @@ The `run_debug.sh` bash script provides enhanced debugging with automatic loggin
 
 **Generated Files:**
 - **`test_framework.log`**: Complete test execution log with all debug output
+- **`test_reports/test_report_YYYYMMDD_HHMMSS.json`**: Detailed JSON test reports with metrics
 - **`success.md`**: Success tracking log created by test framework (when tests pass)
 
 Debug mode shows:
@@ -223,6 +225,33 @@ Debug mode shows:
 - Error details
 
 The `run_debug.sh` script automatically saves all output to `test_framework.log` for post-run analysis, while `success.md` tracks successful test completions.
+
+### Enhanced Validation System
+
+The framework now includes **advanced output validation** that detects broken main program functionality:
+
+**🚨 Critical Validation Features:**
+- **Content Density Checks**: Validates fork entries (🍴), branch trees (├─), AI bullet points (-), and cost tracking ($<0.001)
+- **Section Completeness**: Detects empty sections with headers but no content
+- **Smart Filtering**: Only validates non-first runs (first runs are baseline/hidden)
+- **Failure Detection**: Shows `🚨 CRITICAL VALIDATION FAILURE!` when main gh-utils program has bugs
+
+**What Gets Validated:**
+- All `forks` commands except first run of each phase
+- All `news` commands except first run of each phase
+- Skip validation for `clear` commands (minimal output expected)
+
+**Sample Validation Failure Output:**
+```
+🔧 Executing: python3 .../gh-utils.py forks ccusage
+🚨 CRITICAL VALIDATION FAILURE!
+   Content density validation failed, Section completeness validation failed
+   This indicates the main gh-utils program has bugs!
+❌ Command completed in 39.80s
+⚠️  Validation issues: Content density validation failed, Section completeness validation failed
+```
+
+This ensures the test framework correctly identifies when the main program is broken, rather than falsely reporting success.
 
 ## Development
 

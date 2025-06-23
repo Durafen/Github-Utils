@@ -241,7 +241,11 @@ class TestReporter:
         """Save detailed JSON report to file"""
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"test_report_{timestamp}.json"
+            filename = f"test_reports/test_report_{timestamp}.json"
+        
+        # Ensure test_reports directory exists
+        import os
+        os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else "test_reports", exist_ok=True)
         
         try:
             with open(filename, 'w') as f:

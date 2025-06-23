@@ -265,6 +265,191 @@ class TestValidator:
                 print(f"❌ AI response validation error: {e}")
             return False
     
+    def validate_content_density(self, output: str, command_type: str) -> bool:
+        """Validate output has sufficient content density (not just empty sections)"""
+        try:
+            if not output:
+                if self.debug:
+                    print(f"❌ Empty output for {command_type}")
+                return False
+            
+            lines = output.split('\n')
+            
+            # Count meaningful content lines
+            bullet_points = [line for line in lines if line.strip().startswith('- ')]
+            branch_lines = [line for line in lines if '├─' in line or '⭐' in line]
+            cost_tracking = [line for line in lines if '$<0.001' in line and 'tokens' in line]
+            
+            content_score = 0
+            issues = []
+            
+            if 'forks' in command_type.lower():
+                # Fork analysis should have:
+                # - Fork entries (🍴)
+                # - Branch trees (├─)  
+                # - Cost tracking
+                # - AI summaries (bullet points)
+                
+                fork_entries = len([line for line in lines if '🍴' in line])
+                if fork_entries == 0:
+                    issues.append("No fork entries found")
+                else:
+                    content_score += 1
+                
+                if len(branch_lines) == 0:
+                    issues.append("No branch tree structure found")
+                else:
+                    content_score += 1
+                    
+                if len(bullet_points) < 2:
+                    issues.append(f"Insufficient AI content: {len(bullet_points)} bullet points")
+                else:
+                    content_score += 1
+                    
+                min_required_score = 2  # At least 2 out of 3 elements
+                
+            elif 'news' in command_type.lower():
+                # News should have:
+                # - Summary headers (📊)
+                # - AI bullet points
+                # - Cost tracking
+                
+                summary_headers = len([line for line in lines if '📊' in line and 'Summary' in line])
+                if summary_headers == 0:
+                    issues.append("No summary headers found")
+                else:
+                    content_score += 1
+                
+                if len(bullet_points) < 2:
+                    issues.append(f"Insufficient AI content: {len(bullet_points)} bullet points")
+                else:
+                    content_score += 1
+                    
+                min_required_score = 2  # Both elements required
+            
+            else:
+                # Generic validation
+                if len(bullet_points) == 0:
+                    issues.append("No bullet point content found")
+                else:
+                    content_score += 1
+                min_required_score = 1
+            
+            # Check for cost tracking (should be present in all AI-generated content)
+            if len(cost_tracking) == 0:
+                issues.append("No cost tracking found")
+            else:
+                content_score += 1
+                if 'forks' not in command_type.lower():  # Only increase min requirement for non-forks
+                    min_required_score += 1
+            
+            success = content_score >= min_required_score
+            
+            if self.debug:
+                status = "✅" if success else "❌"
+                print(f"{status} Content density validation ({command_type}): {content_score}/{min_required_score + (1 if len(cost_tracking) > 0 else 0)} elements")
+                if issues:
+                    print(f"   Issues: {', '.join(issues)}")
+                    
+            self.validation_results.append({
+                'type': 'content_density_validation',
+                'command_type': command_type,
+                'success': success,
+                'content_score': content_score,
+                'min_required_score': min_required_score,
+                'bullet_points': len(bullet_points),
+                'branch_lines': len(branch_lines),
+                'cost_tracking': len(cost_tracking),
+                'issues': issues,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Content density validation error: {e}")
+            return False
+    
+    def validate_section_completeness(self, output: str, command_type: str) -> bool:
+        """Validate that output sections are complete (not just headers with empty content)"""
+        try:
+            if not output:
+                if self.debug:
+                    print(f"❌ Empty output for section validation")
+                return False
+            
+            # Split by section dividers
+            sections = output.split('================================================================================')
+            
+            empty_sections = []
+            incomplete_sections = []
+            total_meaningful_sections = 0
+            
+            for i, section in enumerate(sections):
+                section = section.strip()
+                if not section:
+                    continue
+                    
+                # Check for analysis sections
+                if 'FORK ANALYSIS' in section or 'Summary' in section:
+                    total_meaningful_sections += 1
+                    
+                    # For fork analysis, check if it has actual content beyond just headers
+                    if 'FORK ANALYSIS' in section:
+                        if '🍴' not in section:
+                            empty_sections.append(f"Fork analysis section {i} has no fork entries")
+                        elif len([line for line in section.split('\n') if line.strip().startswith('- ')]) == 0:
+                            incomplete_sections.append(f"Fork analysis section {i} has no AI summary content")
+                    
+                    # For summary sections, check if they have content between headers
+                    elif 'Summary' in section and '📊' in section:
+                        lines = section.split('\n')
+                        content_lines = [line for line in lines if line.strip() and not line.startswith('─') and 'Summary' not in line and '📊' not in line and not line.startswith('=')]
+                        
+                        # Only check summary sections that should have content (not just headers)
+                        if '$<0.001' not in section and len(content_lines) == 0:
+                            empty_sections.append(f"Summary section {i} is completely empty")
+                        elif len(content_lines) == 1 and len(content_lines[0].strip()) < 20:
+                            incomplete_sections.append(f"Summary section {i} has insufficient content ({len(content_lines)} lines)")
+            
+            # Special check for forks: ensure we have some content if we claim to have forks
+            if 'forks' in command_type.lower():
+                fork_summary_pattern = r'Forks Summary.*\((\d+)/\d+\)'
+                match = re.search(fork_summary_pattern, output)
+                if match:
+                    fork_count = int(match.group(1))
+                    if fork_count > 0 and len(empty_sections) > 0:
+                        # We claim to have forks but sections are empty - this is a major failure
+                        empty_sections.append(f"Claims {fork_count} forks but analysis sections are empty")
+            
+            success = len(empty_sections) == 0 and len(incomplete_sections) <= 1  # Allow 1 incomplete section
+            
+            if self.debug:
+                status = "✅" if success else "❌"
+                print(f"{status} Section completeness validation ({command_type}): {total_meaningful_sections} sections")
+                if empty_sections:
+                    print(f"   🚨 CRITICAL - Empty sections: {', '.join(empty_sections)}")
+                if incomplete_sections:
+                    print(f"   ⚠️  Incomplete sections: {', '.join(incomplete_sections)}")
+            
+            self.validation_results.append({
+                'type': 'section_completeness_validation',
+                'command_type': command_type,
+                'success': success,
+                'total_sections': total_meaningful_sections,
+                'empty_sections': empty_sections,
+                'incomplete_sections': incomplete_sections,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Section completeness validation error: {e}")
+            return False
+    
     def get_validation_summary(self) -> Dict[str, Any]:
         """Get summary of all validation results"""
         total_validations = len(self.validation_results)
