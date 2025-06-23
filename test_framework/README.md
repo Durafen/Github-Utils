@@ -35,14 +35,17 @@ The framework validates 3 core gh-utils functionalities:
 ### Running Tests
 
 ```bash
-# Run complete test suite
-python3 test_framework/main_test.py
+# Run complete test suite with timeout (recommended)
+timeout 110 python3 test_framework/main_test.py
 
 # Run with debug output
-python3 test_framework/main_test.py --debug
+timeout 110 python3 test_framework/main_test.py --debug
 
 # Run without saving JSON reports
-python3 test_framework/main_test.py --no-save-reports
+timeout 110 python3 test_framework/main_test.py --no-save-reports
+
+# Quick test run (no timeout needed for basic functionality)
+python3 test_framework/main_test.py --help
 ```
 
 ## Architecture
@@ -162,6 +165,44 @@ Debug mode shows:
 - Error details
 
 ## Development
+
+### Git Worktree Architecture
+
+The test framework uses a **git worktree + symlink setup** for cross-branch access:
+
+**Structure:**
+```
+/github-utils/                    # Main project (any branch)
+├── test_framework -> ../github-utils-tests/test_framework/  # Symlink
+└── ...
+
+/github-utils-tests/              # Worktree (test_framework branch)
+├── .gitignore
+└── test_framework/               # Test framework source code
+    ├── main_test.py
+    ├── test_runner.py
+    └── ...
+```
+
+**Development Workflow:**
+```bash
+# Run tests from any branch in main project
+timeout 110 python3 test_framework/main_test.py --debug
+
+# Edit test framework (commits to test_framework branch)
+cd ../github-utils-tests
+git add test_framework/ && git commit -m "test: improve validation"
+git push origin test_framework
+
+# Back to main development
+cd ../github-utils
+```
+
+**Benefits:**
+- ✅ **Universal Access**: Test framework available from any branch
+- ✅ **Correct Commits**: Test changes automatically go to `test_framework` branch
+- ✅ **Live Updates**: Changes immediately visible in main project
+- ✅ **Clean Separation**: No mixing of main app and test code
 
 ### Adding New Test Scenarios
 
