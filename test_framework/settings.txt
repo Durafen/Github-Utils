@@ -1,0 +1,54 @@
+# Test Framework Settings
+# Configuration for gh-utils Hybrid Testing Framework
+
+[cleanup]
+# Delete commits created during testing after each phase completes
+# When true: commits are removed after each phase (clean testing)
+# When false: commits persist for manual inspection (debug mode)
+delete_commits_after_phase = false
+
+# [phases]
+# # Test framework runs 3 main phases:
+# # 1. forks_analysis    - Tests ./gh-utils.py forks ccusage
+# # 2. news_about_forks  - Tests ./gh-utils.py news test-ccusage  
+# # 3. news_regular_repo - Tests ./gh-utils.py news testing
+# 
+# # Enable/disable individual phases
+# enable_forks_analysis = true
+# enable_news_about_forks = true  
+# enable_news_regular_repo = true
+# 
+# # Commit cleanup behavior per phase
+# delete_commits_after_forks_analysis = true
+# delete_commits_after_news_about_forks = true
+# delete_commits_after_news_regular_repo = true
+
+# [repositories]
+# # Test repositories used by the framework
+# forks_test_repo = ccusage           # Fork analysis target
+# news_fork_repo = test-ccusage       # News testing on fork
+# news_regular_repo = testing         # News testing on regular repo
+
+# [timing]
+# # Timeout controls for test execution
+# default_command_timeout = 120      # seconds
+# github_operation_timeout = 30      # seconds for git operations
+# max_test_suite_duration = 300      # seconds (5 minutes total)
+
+# [validation]
+# # Enhanced validation settings
+# enable_content_density_checks = true
+# enable_section_completeness_checks = true
+# skip_validation_on_first_run = true    # First runs are baseline
+# validate_fork_entries = true           # Look for 🍴 symbols
+# validate_branch_trees = true           # Look for ├─ symbols
+# validate_ai_bullet_points = true       # Look for - symbols
+# validate_cost_tracking = true          # Look for $<0.001 patterns
+
+# [reporting]
+# # Test reporting and output settings
+# save_json_reports = true
+# json_report_directory = test_reports
+# create_success_log = true          # Creates success.md on completion
+# enable_performance_metrics = true
+# show_validation_details = true

@@ -37,6 +37,9 @@ class MainTestOrchestrator:
         self.debug = debug
         self.save_reports = save_reports
         
+        # Load settings
+        self.settings = self._load_settings()
+        
         # Initialize core components
         self.runner = HybridTestRunner(debug=debug)
         self.scenarios_manager = TestScenariosManager(self.runner)
@@ -46,6 +49,34 @@ class MainTestOrchestrator:
             print("🚀 Main Test Orchestrator initialized")
             print(f"   Debug mode: {debug}")
             print(f"   Save reports: {save_reports}")
+            print(f"   Delete commits after phase: {self.settings.get('delete_commits_after_phase', True)}")
+    
+    def _load_settings(self) -> dict:
+        """Load settings from settings.txt file"""
+        settings = {'delete_commits_after_phase': True}  # Default
+        
+        try:
+            import configparser
+            settings_file = os.path.join(os.path.dirname(__file__), 'settings.txt')
+            
+            if os.path.exists(settings_file):
+                config = configparser.ConfigParser()
+                config.read(settings_file)
+                
+                if 'cleanup' in config:
+                    settings['delete_commits_after_phase'] = config.getboolean('cleanup', 'delete_commits_after_phase', fallback=True)
+                    
+                if self.debug:
+                    print(f"📋 Settings loaded from {settings_file}")
+            else:
+                if self.debug:
+                    print("📋 Settings file not found, using defaults")
+                    
+        except Exception as e:
+            if self.debug:
+                print(f"⚠️ Error loading settings: {e}, using defaults")
+                
+        return settings
     
     def validate_environment(self) -> bool:
         """Validate that the testing environment is ready"""
@@ -180,13 +211,16 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
-        # Clean up test commits at end of forks analysis phase
-        if self.debug:
-            print("\n🧹 Cleaning up test commits after forks analysis phase...")
-        cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
-        if self.debug:
-            status = "✅" if cleanup_success else "⚠️"
-            print(f"{status} Forks analysis phase cleanup completed")
+        # Clean up test commits at end of forks analysis phase (controlled by settings)
+        if self.settings.get('delete_commits_after_phase', True):
+            if self.debug:
+                print("\n🧹 Cleaning up test commits after forks analysis phase...")
+            cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+            if self.debug:
+                status = "✅" if cleanup_success else "⚠️"
+                print(f"{status} Forks analysis phase cleanup completed")
+        elif self.debug:
+            print("\n🔧 Skipping cleanup (delete_commits_after_phase = false)")
         
         return results
     
@@ -210,13 +244,16 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
-        # Clean up test commits at end of news about forks phase
-        if self.debug:
-            print("\n🧹 Cleaning up test commits after news about forks phase...")
-        cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
-        if self.debug:
-            status = "✅" if cleanup_success else "⚠️"
-            print(f"{status} News about forks phase cleanup completed")
+        # Clean up test commits at end of news about forks phase (controlled by settings)
+        if self.settings.get('delete_commits_after_phase', True):
+            if self.debug:
+                print("\n🧹 Cleaning up test commits after news about forks phase...")
+            cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+            if self.debug:
+                status = "✅" if cleanup_success else "⚠️"
+                print(f"{status} News about forks phase cleanup completed")
+        elif self.debug:
+            print("\n🔧 Skipping cleanup (delete_commits_after_phase = false)")
         
         return results
     
@@ -240,13 +277,16 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
-        # Clean up test commits at end of news about regular phase
-        if self.debug:
-            print("\n🧹 Cleaning up test commits after news about regular phase...")
-        cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
-        if self.debug:
-            status = "✅" if cleanup_success else "⚠️"
-            print(f"{status} News about regular phase cleanup completed")
+        # Clean up test commits at end of news about regular phase (controlled by settings)
+        if self.settings.get('delete_commits_after_phase', True):
+            if self.debug:
+                print("\n🧹 Cleaning up test commits after news about regular phase...")
+            cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+            if self.debug:
+                status = "✅" if cleanup_success else "⚠️"
+                print(f"{status} News about regular phase cleanup completed")
+        elif self.debug:
+            print("\n🔧 Skipping cleanup (delete_commits_after_phase = false)")
         
         return results
     
