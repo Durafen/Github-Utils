@@ -12,6 +12,12 @@ import time
 from datetime import datetime
 from typing import Dict, Optional, List
 
+# Import test commit patterns
+try:
+    from .test_commit_patterns import TestCommitPatterns
+except ImportError:
+    from test_commit_patterns import TestCommitPatterns
+
 
 class GitHubOperations:
     """Manages real GitHub repository operations for testing"""
@@ -199,12 +205,372 @@ class GitHubOperations:
                 print(f"❌ Branch creation failed: {e}")
             return False
     
-    def cleanup_test_artifacts(self, keep_commits: bool = False) -> bool:
-        """Clean up temporary directories and test branches"""
+    def get_test_commits_in_history(self, repo_name: str, branch: str = 'main', max_commits: int = 50) -> List[Dict]:
+        """Find test commits in repository history using both GitHub API and local git log"""
+        test_commits = []
+        patterns = TestCommitPatterns()
+        
         try:
-            # Clean up test branches first
+            # Method 1: Use GitHub API for remote repository
+            repo_url = self.test_repos.get(repo_name)
+            if repo_url and 'github.com/' in repo_url:
+                repo_path = repo_url.split('github.com/')[-1]
+                if repo_path.endswith('.git'):
+                    repo_path = repo_path[:-4]
+                
+                # Get commits from GitHub API
+                api_result = self._run_command([
+                    'gh', 'api', f'repos/{repo_path}/commits',
+                    '--jq', f'.[0:{max_commits}][] | {{sha: .sha, message: .commit.message, date: .commit.author.date, author: .commit.author.name}}'
+                ])
+                
+                if api_result.returncode == 0:
+                    for line in api_result.stdout.strip().split('\n'):
+                        if line.strip():
+                            try:
+                                import json
+                                commit_data = json.loads(line)
+                                message = commit_data.get('message', '').strip()
+                                
+                                if patterns.is_test_commit(message):
+                                    test_commits.append({
+                                        'sha': commit_data.get('sha'),
+                                        'message': message,
+                                        'date': commit_data.get('date'),
+                                        'author': commit_data.get('author'),
+                                        'branch': branch,
+                                        'source': 'github_api'
+                                    })
+                                    
+                            except json.JSONDecodeError:
+                                continue
+            
+            # Method 2: Use local git log if repository is cloned
+            if repo_name in self.temp_dirs:
+                repo_dir = self.temp_dirs[repo_name]
+                
+                # Checkout the branch first
+                self._run_command(['git', 'checkout', branch], cwd=repo_dir)
+                self._run_command(['git', 'pull', 'origin', branch], cwd=repo_dir)
+                
+                # Get commits using git log
+                git_result = self._run_command([
+                    'git', 'log', f'--max-count={max_commits}', 
+                    '--pretty=format:%H|%s|%ai|%an', branch
+                ], cwd=repo_dir)
+                
+                if git_result.returncode == 0:
+                    for line in git_result.stdout.strip().split('\n'):
+                        if line.strip():
+                            parts = line.split('|', 3)
+                            if len(parts) >= 4:
+                                sha, message, date, author = parts
+                                message = message.strip()
+                                
+                                if patterns.is_test_commit(message):
+                                    # Check if we already have this commit from API
+                                    existing = next((c for c in test_commits if c['sha'] == sha), None)
+                                    if not existing:
+                                        test_commits.append({
+                                            'sha': sha,
+                                            'message': message,
+                                            'date': date,
+                                            'author': author,
+                                            'branch': branch,
+                                            'source': 'local_git'
+                                        })
+            
+            if self.debug and test_commits:
+                print(f"🔍 Found {len(test_commits)} test commits in {repo_name}/{branch}")
+                for commit in test_commits[:5]:  # Show first 5
+                    print(f"   📝 {commit['sha'][:8]}: {commit['message']}")
+                if len(test_commits) > 5:
+                    print(f"   ... and {len(test_commits) - 5} more")
+            
+            return test_commits
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Error analyzing commit history for {repo_name}/{branch}: {e}")
+            return []
+    
+    def get_all_test_commits(self, repo_name: str) -> Dict[str, List[Dict]]:
+        """Get test commits from all branches of a repository"""
+        all_commits = {}
+        
+        try:
+            # Get all branches
+            branches = self.get_available_branches(repo_name)
+            if not branches:
+                branches = ['main']  # Fallback to main
+            
+            for branch in branches:
+                commits = self.get_test_commits_in_history(repo_name, branch)
+                if commits:
+                    all_commits[branch] = commits
+            
+            if self.debug:
+                total_commits = sum(len(commits) for commits in all_commits.values())
+                print(f"🔍 Found {total_commits} total test commits across {len(all_commits)} branches in {repo_name}")
+            
+            return all_commits
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Error getting all test commits for {repo_name}: {e}")
+            return {}
+
+    def delete_test_commits_safely(self, repo_name: str, branch: str = 'main', dry_run: bool = False) -> bool:
+        """Safely delete test commits from a branch using git reset --hard"""
+        if repo_name not in self.temp_dirs:
+            if self.debug:
+                print(f"❌ Repository {repo_name} not set up for local operations")
+            return False
+        
+        repo_dir = self.temp_dirs[repo_name]
+        patterns = TestCommitPatterns()
+        
+        try:
+            # Checkout the branch and pull latest
+            self._run_command(['git', 'checkout', branch], cwd=repo_dir)
+            self._run_command(['git', 'pull', 'origin', branch], cwd=repo_dir)
+            
+            # Get commit history with more details
+            git_result = self._run_command([
+                'git', 'log', '--max-count=100', 
+                '--pretty=format:%H|%s|%ai|%an', branch
+            ], cwd=repo_dir)
+            
+            if git_result.returncode != 0:
+                if self.debug:
+                    print(f"❌ Failed to get git log for {repo_name}/{branch}")
+                return False
+            
+            commits = []
+            for line in git_result.stdout.strip().split('\n'):
+                if line.strip():
+                    parts = line.split('|', 3)
+                    if len(parts) >= 4:
+                        sha, message, date, author = parts
+                        commits.append({
+                            'sha': sha.strip(),
+                            'message': message.strip(),
+                            'date': date.strip(),
+                            'author': author.strip(),
+                            'is_test': patterns.is_test_commit(message.strip())
+                        })
+            
+            if not commits:
+                if self.debug:
+                    print(f"ℹ️  No commits found in {repo_name}/{branch}")
+                return True
+            
+            # Find the first non-test commit (going backwards from HEAD)
+            reset_to_sha = None
+            test_commits_to_delete = []
+            
+            for i, commit in enumerate(commits):
+                if commit['is_test']:
+                    test_commits_to_delete.append(commit)
+                else:
+                    # Found first non-test commit - this is our reset target
+                    reset_to_sha = commit['sha']
+                    break
+            
+            if not test_commits_to_delete:
+                if self.debug:
+                    print(f"ℹ️  No test commits found to delete in {repo_name}/{branch}")
+                return True
+            
+            if not reset_to_sha:
+                # All commits are test commits - this is dangerous, reset to initial commit
+                if self.debug:
+                    print(f"⚠️  All recent commits are test commits in {repo_name}/{branch}")
+                    print(f"   This would delete {len(test_commits_to_delete)} commits")
+                    if not dry_run:
+                        print(f"   Skipping deletion to avoid destroying repository history")
+                return False
+            
+            if self.debug or dry_run:
+                print(f"🗑️  Found {len(test_commits_to_delete)} test commits to delete in {repo_name}/{branch}")
+                for commit in test_commits_to_delete[:5]:  # Show first 5
+                    print(f"   📝 {commit['sha'][:8]}: {commit['message']}")
+                if len(test_commits_to_delete) > 5:
+                    print(f"   ... and {len(test_commits_to_delete) - 5} more")
+                print(f"🎯 Will reset to: {reset_to_sha[:8]} ({commits[len(test_commits_to_delete)]['message'][:50]}...)")
+            
+            if dry_run:
+                print("🔍 DRY RUN: No actual deletion performed")
+                return True
+            
+            # Perform the actual deletion
+            print(f"🗑️  Deleting {len(test_commits_to_delete)} test commits from {repo_name}/{branch}")
+            
+            # Reset to the target commit
+            reset_result = self._run_command(['git', 'reset', '--hard', reset_to_sha], cwd=repo_dir)
+            if reset_result.returncode != 0:
+                if self.debug:
+                    print(f"❌ Git reset failed: {reset_result.stderr}")
+                return False
+            
+            # Force push to update remote (this is the destructive operation)
+            push_result = self._run_command(['git', 'push', '--force-with-lease', 'origin', branch], cwd=repo_dir)
+            if push_result.returncode != 0:
+                if self.debug:
+                    print(f"❌ Force push failed: {push_result.stderr}")
+                    print(f"   Remote may have been updated by someone else")
+                return False
+            
+            if self.debug:
+                print(f"✅ Successfully deleted {len(test_commits_to_delete)} test commits from {repo_name}/{branch}")
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Error deleting test commits from {repo_name}/{branch}: {e}")
+            return False
+    
+    def delete_all_test_commits(self, repo_name: str, dry_run: bool = False) -> bool:
+        """Delete test commits from all branches of a repository"""
+        try:
+            branches = self.get_available_branches(repo_name)
+            if not branches:
+                branches = ['main']  # Fallback
+            
+            overall_success = True
+            total_deleted = 0
+            
+            for branch in branches:
+                if self.debug:
+                    print(f"\n🔍 Processing branch: {repo_name}/{branch}")
+                
+                success = self.delete_test_commits_safely(repo_name, branch, dry_run)
+                if not success:
+                    overall_success = False
+                    if self.debug:
+                        print(f"⚠️  Failed to clean {repo_name}/{branch}")
+            
+            if self.debug and overall_success:
+                print(f"✅ Completed test commit cleanup for all branches in {repo_name}")
+            
+            return overall_success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Error cleaning all test commits from {repo_name}: {e}")
+            return False
+
+    def cleanup_test_commits(self, dry_run: bool = False) -> bool:
+        """Main method to cleanup test commits from all test repositories"""
+        if self.debug:
+            print(f"🧹 Starting test commit cleanup {'(DRY RUN)' if dry_run else ''}...")
+        
+        overall_success = True
+        cleanup_summary = {}
+        
+        try:
+            # Ensure repositories are set up
+            if not self.setup_test_repositories():
+                if self.debug:
+                    print("❌ Failed to setup repositories for cleanup")
+                return False
+            
+            # Process each test repository
+            for repo_name in self.test_repos.keys():
+                if self.debug:
+                    print(f"\n🔍 Processing repository: {repo_name}")
+                
+                repo_success = self.delete_all_test_commits(repo_name, dry_run)
+                cleanup_summary[repo_name] = repo_success
+                
+                if not repo_success:
+                    overall_success = False
+                    if self.debug:
+                        print(f"⚠️  Failed to clean test commits from {repo_name}")
+                else:
+                    if self.debug:
+                        print(f"✅ Successfully cleaned test commits from {repo_name}")
+            
+            # Summary report
+            if self.debug:
+                print(f"\n📊 Test Commit Cleanup Summary:")
+                print(f"   Overall Success: {'✅' if overall_success else '❌'}")
+                for repo, success in cleanup_summary.items():
+                    status = "✅" if success else "❌"
+                    print(f"   {repo}: {status}")
+                
+                if dry_run:
+                    print(f"🔍 DRY RUN: No actual commits were deleted")
+                elif overall_success:
+                    print(f"🎉 All test repositories cleaned successfully!")
+                else:
+                    print(f"⚠️  Some repositories had cleanup failures")
+            
+            return overall_success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Test commit cleanup failed: {e}")
+            return False
+    
+    def cleanup_test_commits_for_repos(self, repo_names: List[str], dry_run: bool = False) -> bool:
+        """Cleanup test commits for specific repositories only"""
+        if self.debug:
+            print(f"🧹 Cleaning test commits for repositories: {', '.join(repo_names)} {'(DRY RUN)' if dry_run else ''}")
+        
+        overall_success = True
+        
+        try:
+            # Ensure repositories are set up
+            if not self.setup_test_repositories():
+                return False
+            
+            for repo_name in repo_names:
+                if repo_name not in self.test_repos:
+                    if self.debug:
+                        print(f"⚠️  Repository {repo_name} not found in test_repos")
+                    continue
+                
+                success = self.delete_all_test_commits(repo_name, dry_run)
+                if not success:
+                    overall_success = False
+            
+            return overall_success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Selective test commit cleanup failed: {e}")
+            return False
+
+    def cleanup_test_artifacts(self, keep_commits: bool = False, clean_commits: bool = False) -> bool:
+        """Clean up temporary directories, test branches, and optionally test commits
+        
+        Args:
+            keep_commits: Legacy parameter for backwards compatibility (ignored)
+            clean_commits: If True, delete test commits from repositories
+        """
+        overall_success = True
+        
+        try:
+            # Clean up test commits first (if requested)
+            if clean_commits:
+                if self.debug:
+                    print("🧹 Cleaning up test commits from repositories...")
+                commit_cleanup_success = self.cleanup_test_commits(dry_run=False)
+                if not commit_cleanup_success:
+                    overall_success = False
+                    if self.debug:
+                        print("⚠️  Test commit cleanup had some failures")
+            else:
+                if self.debug:
+                    print("ℹ️  Skipping test commit cleanup (clean_commits=False)")
+            
+            # Clean up test branches
             for repo_name in self.temp_dirs.keys():
-                self._cleanup_test_branches(repo_name)
+                branch_success = self._cleanup_test_branches(repo_name)
+                if not branch_success:
+                    overall_success = False
             
             # Clean up temporary directories
             for repo_name, temp_dir in self.temp_dirs.items():
@@ -215,11 +581,17 @@ class GitHubOperations:
             
             self.temp_dirs.clear()
             
-            # Optionally clean up test commits (not implemented to avoid complexity)
-            if not keep_commits and self.debug:
-                print("ℹ️  Test commits remain in repositories (manual cleanup required)")
+            # Summary message about test commits
+            if not clean_commits:
+                if self.debug:
+                    print("ℹ️  Test commits remain in repositories (use clean_commits=True to remove)")
             
-            return True
+            if self.debug and overall_success:
+                print("✅ All cleanup operations completed successfully")
+            elif self.debug:
+                print("⚠️  Some cleanup operations had failures")
+            
+            return overall_success
             
         except Exception as e:
             if self.debug:

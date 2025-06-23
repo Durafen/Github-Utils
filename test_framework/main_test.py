@@ -180,6 +180,14 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
+        # Clean up test commits at end of forks analysis phase
+        if self.debug:
+            print("\n🧹 Cleaning up test commits after forks analysis phase...")
+        cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+        if self.debug:
+            status = "✅" if cleanup_success else "⚠️"
+            print(f"{status} Forks analysis phase cleanup completed")
+        
         return results
     
     def _run_news_about_forks_tests(self) -> list:
@@ -202,6 +210,14 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
+        # Clean up test commits at end of news about forks phase
+        if self.debug:
+            print("\n🧹 Cleaning up test commits after news about forks phase...")
+        cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+        if self.debug:
+            status = "✅" if cleanup_success else "⚠️"
+            print(f"{status} News about forks phase cleanup completed")
+        
         return results
     
     def _run_news_about_regular_tests(self) -> list:
@@ -223,6 +239,14 @@ class MainTestOrchestrator:
             result = self.runner.run_test_scenario(scenario_name, steps)
             results.append(result)
             time.sleep(2)
+        
+        # Clean up test commits at end of news about regular phase
+        if self.debug:
+            print("\n🧹 Cleaning up test commits after news about regular phase...")
+        cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+        if self.debug:
+            status = "✅" if cleanup_success else "⚠️"
+            print(f"{status} News about regular phase cleanup completed")
         
         return results
     
