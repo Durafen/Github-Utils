@@ -88,7 +88,7 @@ class GitHubOperations:
             stdout = ''.join(captured_lines)
             stderr = ""  # Combined with stdout above
             
-            if return_code != 0 and self.debug:
+            if return_code != 0:
                 print(f"❌ Command failed with return code: {return_code}")
             
             return CompletedProcessMock(return_code, stdout, stderr)
@@ -117,8 +117,7 @@ class GitHubOperations:
             
             return True
         except Exception as e:
-            if self.debug:
-                print(f"❌ Setup failed: {e}")
+            print(f"❌ Setup failed: {e}")
             return False
     
     def _setup_git_auth(self, repo_dir: str):
@@ -131,15 +130,13 @@ class GitHubOperations:
             if self.debug:
                 print(f"✅ Configured git authentication for {repo_dir}")
         except Exception as e:
-            if self.debug:
-                print(f"⚠️ Git auth setup failed: {e}")
+            print(f"⚠️ Git auth setup failed: {e}")
     
     def create_test_commit(self, repo_name: str, branch: str = 'main', 
                           message: Optional[str] = None) -> bool:
         """Create and push a test commit to specified branch"""
         if repo_name not in self.temp_dirs:
-            if self.debug:
-                print(f"❌ Repository {repo_name} not set up")
+            print(f"❌ Repository {repo_name} not set up")
             return False
         
         repo_dir = self.temp_dirs[repo_name]
@@ -164,15 +161,13 @@ class GitHubOperations:
             self._run_command(['git', 'add', test_file], cwd=repo_dir)
             result_commit = self._run_command(['git', 'commit', '-m', message], cwd=repo_dir)
             if result_commit.returncode != 0:
-                if self.debug:
-                    print(f"❌ Commit failed: {result_commit.stderr}")
+                print(f"❌ Commit failed: {result_commit.stderr}")
                 return False
             
             # Push changes
             result_push = self._run_command(['git', 'push', 'origin', branch], cwd=repo_dir)
             if result_push.returncode != 0:
-                if self.debug:
-                    print(f"❌ Push failed: {result_push.stderr}")
+                print(f"❌ Push failed: {result_push.stderr}")
                 return False
             
             if self.debug:
@@ -193,8 +188,7 @@ class GitHubOperations:
             return True
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Commit creation failed: {e}")
+            print(f"❌ Commit creation failed: {e}")
             return False
     
     def create_test_branch(self, repo_name: str, branch_name: str, 
@@ -236,8 +230,7 @@ class GitHubOperations:
     def create_dynamic_test_branch(self, repo_name: str, branch_name: str) -> bool:
         """Create a new branch with specified unique name"""
         if repo_name not in self.temp_dirs:
-            if self.debug:
-                print(f"❌ Repository {repo_name} not set up")
+            print(f"❌ Repository {repo_name} not set up")
             return False
         
         repo_dir = self.temp_dirs[repo_name]
@@ -254,8 +247,7 @@ class GitHubOperations:
             # Create new branch
             result = self._run_command(['git', 'checkout', '-b', branch_name], cwd=repo_dir)
             if result.returncode != 0:
-                if self.debug:
-                    print(f"❌ Failed to create branch {branch_name}: {result.stderr}")
+                print(f"❌ Failed to create branch {branch_name}: {result.stderr}")
                 return False
             
             # Push to remote
@@ -268,8 +260,7 @@ class GitHubOperations:
             return push_result.returncode == 0
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ NEW branch creation failed: {e}")
+            print(f"❌ NEW branch creation failed: {e}")
             return False
     
     def get_test_commits_in_history(self, repo_name: str, branch: str = 'main', max_commits: int = 50) -> List[Dict]:
@@ -357,8 +348,7 @@ class GitHubOperations:
             return test_commits
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Error analyzing commit history for {repo_name}/{branch}: {e}")
+            print(f"❌ Error analyzing commit history for {repo_name}/{branch}: {e}")
             return []
     
     def get_all_test_commits(self, repo_name: str) -> Dict[str, List[Dict]]:
@@ -383,15 +373,13 @@ class GitHubOperations:
             return all_commits
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Error getting all test commits for {repo_name}: {e}")
+            print(f"❌ Error getting all test commits for {repo_name}: {e}")
             return {}
 
     def delete_test_commits_safely(self, repo_name: str, branch: str = 'main', dry_run: bool = False) -> bool:
         """Safely delete test commits from a branch using git reset --hard"""
         if repo_name not in self.temp_dirs:
-            if self.debug:
-                print(f"❌ Repository {repo_name} not set up for local operations")
+            print(f"❌ Repository {repo_name} not set up for local operations")
             return False
         
         repo_dir = self.temp_dirs[repo_name]
@@ -409,8 +397,7 @@ class GitHubOperations:
             ], cwd=repo_dir)
             
             if git_result.returncode != 0:
-                if self.debug:
-                    print(f"❌ Failed to get git log for {repo_name}/{branch}")
+                print(f"❌ Failed to get git log for {repo_name}/{branch}")
                 return False
             
             commits = []
@@ -476,16 +463,14 @@ class GitHubOperations:
             # Reset to the target commit
             reset_result = self._run_command(['git', 'reset', '--hard', reset_to_sha], cwd=repo_dir)
             if reset_result.returncode != 0:
-                if self.debug:
-                    print(f"❌ Git reset failed: {reset_result.stderr}")
+                print(f"❌ Git reset failed: {reset_result.stderr}")
                 return False
             
             # Force push to update remote (this is the destructive operation)
             push_result = self._run_command(['git', 'push', '--force-with-lease', 'origin', branch], cwd=repo_dir)
             if push_result.returncode != 0:
-                if self.debug:
-                    print(f"❌ Force push failed: {push_result.stderr}")
-                    print(f"   Remote may have been updated by someone else")
+                print(f"❌ Force push failed: {push_result.stderr}")
+                print(f"   Remote may have been updated by someone else")
                 return False
             
             if self.debug:
@@ -494,8 +479,7 @@ class GitHubOperations:
             return True
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Error deleting test commits from {repo_name}/{branch}: {e}")
+            print(f"❌ Error deleting test commits from {repo_name}/{branch}: {e}")
             return False
     
     def delete_all_test_commits(self, repo_name: str, dry_run: bool = False) -> bool:
@@ -515,8 +499,7 @@ class GitHubOperations:
                 success = self.delete_test_commits_safely(repo_name, branch, dry_run)
                 if not success:
                     overall_success = False
-                    if self.debug:
-                        print(f"⚠️  Failed to clean {repo_name}/{branch}")
+                    print(f"⚠️  Failed to clean {repo_name}/{branch}")
             
             if self.debug and overall_success:
                 print(f"✅ Completed test commit cleanup for all branches in {repo_name}")
@@ -524,8 +507,7 @@ class GitHubOperations:
             return overall_success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Error cleaning all test commits from {repo_name}: {e}")
+            print(f"❌ Error cleaning all test commits from {repo_name}: {e}")
             return False
 
     def cleanup_test_commits(self, dry_run: bool = False) -> bool:
@@ -539,8 +521,7 @@ class GitHubOperations:
         try:
             # Ensure repositories are set up
             if not self.setup_test_repositories():
-                if self.debug:
-                    print("❌ Failed to setup repositories for cleanup")
+                print("❌ Failed to setup repositories for cleanup")
                 return False
             
             # Process each test repository
@@ -553,8 +534,7 @@ class GitHubOperations:
                 
                 if not repo_success:
                     overall_success = False
-                    if self.debug:
-                        print(f"⚠️  Failed to clean test commits from {repo_name}")
+                    print(f"⚠️  Failed to clean test commits from {repo_name}")
                 else:
                     if self.debug:
                         print(f"✅ Successfully cleaned test commits from {repo_name}")
@@ -595,8 +575,7 @@ class GitHubOperations:
             
             for repo_name in repo_names:
                 if repo_name not in self.test_repos:
-                    if self.debug:
-                        print(f"⚠️  Repository {repo_name} not found in test_repos")
+                    print(f"⚠️  Repository {repo_name} not found in test_repos")
                     continue
                 
                 success = self.delete_all_test_commits(repo_name, dry_run)
@@ -606,8 +585,7 @@ class GitHubOperations:
             return overall_success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Selective test commit cleanup failed: {e}")
+            print(f"❌ Selective test commit cleanup failed: {e}")
             return False
 
     def cleanup_test_artifacts(self, keep_commits: bool = False, clean_commits: bool = False) -> bool:
@@ -627,8 +605,7 @@ class GitHubOperations:
                 commit_cleanup_success = self.cleanup_test_commits(dry_run=False)
                 if not commit_cleanup_success:
                     overall_success = False
-                    if self.debug:
-                        print("⚠️  Test commit cleanup had some failures")
+                    print("⚠️  Test commit cleanup had some failures")
             else:
                 if self.debug:
                     print("ℹ️  Skipping test commit cleanup (clean_commits=False)")
@@ -661,8 +638,7 @@ class GitHubOperations:
             return overall_success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Cleanup failed: {e}")
+            print(f"❌ Cleanup failed: {e}")
             return False
     
     def _cleanup_test_branches(self, repo_name: str) -> bool:
@@ -682,8 +658,7 @@ class GitHubOperations:
                     print(f"{status} Cleaned up remote branch {branch} on {repo_name}")
             return True
         except Exception as e:
-            if self.debug:
-                print(f"⚠️ Branch cleanup failed: {e}")
+            print(f"⚠️ Branch cleanup failed: {e}")
             return False
     
     def get_available_branches(self, repo_name: str) -> List[str]:
@@ -692,14 +667,12 @@ class GitHubOperations:
             # Get GitHub URL for the repo
             repo_url = self.test_repos.get(repo_name)
             if not repo_url:
-                if self.debug:
-                    print(f"❌ Repository {repo_name} not found in test_repos")
+                print(f"❌ Repository {repo_name} not found in test_repos")
                 return []
             
             # Extract owner/repo from URL
             if 'github.com/' not in repo_url:
-                if self.debug:
-                    print(f"❌ Invalid GitHub URL: {repo_url}")
+                print(f"❌ Invalid GitHub URL: {repo_url}")
                 return []
             
             repo_path = repo_url.split('github.com/')[-1]
@@ -715,8 +688,7 @@ class GitHubOperations:
                     print(f"✅ Found branches for {repo_name}: {branches}")
                 return branches
             else:
-                if self.debug:
-                    print(f"❌ Failed to get branches for {repo_name}: {result.stderr}")
+                print(f"❌ Failed to get branches for {repo_name}: {result.stderr}")
                 return []
                 
         except Exception as e:
@@ -746,8 +718,7 @@ class GitHubOperations:
             return last_branch
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Error getting last non-main branch for {repo_name}: {e}")
+            print(f"❌ Error getting last non-main branch for {repo_name}: {e}")
             return None
 
     def get_repository_url(self, repo_name: str) -> Optional[str]:

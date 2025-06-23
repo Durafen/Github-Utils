@@ -294,21 +294,39 @@ cat test_framework/CLAUDE.md
 ```
 
 **📝 Committing Test Framework Changes:**
+
+**⚠️ CRITICAL: Due to symlink setup, git operations must be run from the symlinked directory or use git -C to target the worktree!**
+
 ```bash
-# Option 1: Commit from main project directory (recommended)
+# RECOMMENDED METHOD: Work from within the symlinked directory
+cd test_framework/  # Navigate into the symlinked directory in main project
+git status          # Shows status in test_framework branch (via symlink)
+git add .           # Add all modified test framework files
+git commit -m "test: improve validation and framework components"
+git status          # Should show clean working tree on test_framework branch
+
+# ALTERNATIVE: Use git -C to target the worktree (if symlink access unavailable)
 git -C ../github-utils-tests add test_framework/
-git -C ../github-utils-tests commit -m "test: improve validation and framework components"
+git -C ../github-utils-tests commit -m "test: improve validation and framework components" 
 git -C ../github-utils-tests status  # Verify commit went to test_framework branch
 
-# Option 2: Navigate to worktree directory
-cd ../github-utils-tests
-git add test_framework/ && git commit -m "test: improve validation"
-git status  # Should show clean working tree on test_framework branch
-cd ../github-utils  # Back to main development
+# DON'T DO THIS: Never try to add symlinked files from main project directory
+# git add test_framework/  # ❌ FAILS: "pathspec 'test_framework/file.py' is beyond a symbolic link"
 
 # Verify commits are on correct branch
-git -C ../github-utils-tests log --oneline -3  # Shows test framework commits
-git log --oneline -3  # Shows main app commits (different branch)
+cd test_framework/ && git log --oneline -3  # Shows test framework commits
+cd .. && git log --oneline -3               # Shows main app commits (different branch)
+```
+
+**🔍 Checking Worktree Status:**
+```bash
+# From main project directory
+git worktree list                    # Shows both directories and their branches
+ls -la | grep test_framework        # Confirms symlink setup: test_framework -> ../github-utils-tests/test_framework
+
+# Check which branch you're on in each location
+cd test_framework/ && git branch    # Should show * test_framework
+cd .. && git branch                 # Shows main app branch (e.g., * updates)
 ```
 
 **🌳 How the Git Worktree Works:**

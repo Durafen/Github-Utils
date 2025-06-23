@@ -145,8 +145,7 @@ class TestScenariosManager:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to create main commit for {repo_name}: {e}")
+            print(f"❌ Failed to create main commit for {repo_name}: {e}")
             return False
     
     def _create_test_branch(self, repo_name: str, branch_name: str) -> bool:
@@ -160,8 +159,7 @@ class TestScenariosManager:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to create branch {branch_name} for {repo_name}: {e}")
+            print(f"❌ Failed to create branch {branch_name} for {repo_name}: {e}")
             return False
     
     def _create_branch_commit(self, repo_name: str, branch_name: str) -> bool:
@@ -177,8 +175,7 @@ class TestScenariosManager:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to create commit on {repo_name}/{branch_name}: {e}")
+            print(f"❌ Failed to create commit on {repo_name}/{branch_name}: {e}")
             return False
     
     def _create_new_single_branch(self, repo_name: str) -> bool:
@@ -206,8 +203,7 @@ class TestScenariosManager:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to create NEW branch for {repo_name}: {e}")
+            print(f"❌ Failed to create NEW branch for {repo_name}: {e}")
             return False
     
     def _create_commit_on_new_branch(self, repo_name: str) -> bool:
@@ -237,8 +233,7 @@ class TestScenariosManager:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to create commit on NEW branch for {repo_name}: {e}")
+            print(f"❌ Failed to create commit on NEW branch for {repo_name}: {e}")
             return False
     
     def _validate_new_single_branch(self) -> bool:
@@ -291,8 +286,7 @@ class TestScenariosManager:
             return self.runner.validator.validate_state_updated(repo_key, expected_changes)
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ State validation failed for {repo_name}: {e}")
+            print(f"❌ State validation failed for {repo_name}: {e}")
             return False
     
     def _validate_branch_state_updated(self, repo_name: str, branch_name: str) -> bool:
@@ -307,8 +301,7 @@ class TestScenariosManager:
             return self.runner.validator.validate_state_updated(repo_key, expected_changes)
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Branch state validation failed for {repo_name}/{branch_name}: {e}")
+            print(f"❌ Branch state validation failed for {repo_name}/{branch_name}: {e}")
             return False
     
     def _validate_comprehensive_state(self, repo_name: str) -> bool:
@@ -325,8 +318,7 @@ class TestScenariosManager:
             return self.runner.validator.validate_state_updated(repo_key, expected_changes)
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Comprehensive state validation failed for {repo_name}: {e}")
+            print(f"❌ Comprehensive state validation failed for {repo_name}: {e}")
             return False
     
     def run_all_scenarios(self) -> Dict[str, Any]:

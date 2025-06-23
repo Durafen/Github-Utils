@@ -45,8 +45,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Command validation error: {e}")
+            print(f"❌ Command validation error: {e}")
             return False
     
     def validate_output_contains(self, output: str, expected_patterns: List[str], 
@@ -88,8 +87,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Output validation error: {e}")
+            print(f"❌ Output validation error: {e}")
             return False
     
     def validate_state_updated(self, repo_key: str, expected_changes: Dict[str, Any],
@@ -155,8 +153,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ State validation error: {e}")
+            print(f"❌ State validation error: {e}")
             return False
     
     def validate_performance_metrics(self, execution_time: float, max_time: float,
@@ -181,8 +178,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Performance validation error: {e}")
+            print(f"❌ Performance validation error: {e}")
             return False
     
     def validate_state_cleared(self, repo_key: str, state_file: str = "news_state.json") -> bool:
@@ -222,8 +218,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ State clear validation error: {e}")
+            print(f"❌ State clear validation error: {e}")
             return False
     
     def validate_ai_response_format(self, response: str, min_length: int = 50) -> bool:
@@ -263,8 +258,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ AI response validation error: {e}")
+            print(f"❌ AI response validation error: {e}")
             return False
     
     def validate_content_density(self, output: str, command_type: str) -> bool:
@@ -369,8 +363,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Content density validation error: {e}")
+            print(f"❌ Content density validation error: {e}")
             return False
     
     def validate_section_completeness(self, output: str, command_type: str) -> bool:
@@ -448,8 +441,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Section completeness validation error: {e}")
+            print(f"❌ Section completeness validation error: {e}")
             return False
     
     def validate_new_branch_detected(self, output: str, branch_name: str) -> bool:
@@ -496,8 +488,7 @@ class TestValidator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ NEW branch validation error: {e}")
+            print(f"❌ NEW branch validation error: {e}")
             return False
     
     def get_validation_summary(self) -> Dict[str, Any]:

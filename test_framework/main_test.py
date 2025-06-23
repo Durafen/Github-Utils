@@ -86,8 +86,7 @@ class MainTestOrchestrator:
                 'delete_commits_after_phase': True,
                 'hide_first_run_output': True
             }
-            if self.debug:
-                print(f"⚠️ Error loading settings: {e}, using defaults")
+            print(f"⚠️ Error loading settings: {e}, using defaults")
                 
         return settings
     
@@ -331,8 +330,7 @@ class MainTestOrchestrator:
                     print(f"{status} Cleared state for {repo_name}")
                 # Don't fail overall if individual repo clear fails (may not have state)
             except Exception as e:
-                if self.debug:
-                    print(f"⚠️ Failed to clear state for {repo_name}: {e}")
+                print(f"⚠️ Failed to clear state for {repo_name}: {e}")
                 # Continue with other repos
         
         return success
@@ -447,8 +445,7 @@ class MainTestOrchestrator:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Cleanup failed: {e}")
+            print(f"❌ Cleanup failed: {e}")
             return False
 
 
@@ -520,9 +517,8 @@ Examples:
         return 130
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
-        if args.debug:
-            import traceback
-            traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         orchestrator.cleanup()
         return 1
 

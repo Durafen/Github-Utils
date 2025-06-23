@@ -90,8 +90,7 @@ class HybridTestRunner:
             return True
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Test environment setup failed: {e}")
+            print(f"❌ Test environment setup failed: {e}")
             return False
     
     def _ensure_repository_in_config(self, repo_name: str, repo_url: str) -> bool:
@@ -122,8 +121,7 @@ class HybridTestRunner:
             return True
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to add repository {repo_name}: {e}")
+            print(f"❌ Failed to add repository {repo_name}: {e}")
             return False
     
     def execute_gh_utils_command(self, command_args: List[str], 
@@ -214,13 +212,11 @@ class HybridTestRunner:
                 
         except subprocess.TimeoutExpired:
             execution_time = time.time() - start_time
-            if self.debug:
-                print(f"❌ Command timed out after {timeout}s")
+            print(f"❌ Command timed out after {timeout}s")
             return False, "", "Command timed out", execution_time
         except Exception as e:
             execution_time = time.time() - start_time
-            if self.debug:
-                print(f"❌ Command execution failed: {e}")
+            print(f"❌ Command execution failed: {e}")
             return False, "", str(e), execution_time
     
     def run_test_scenario(self, scenario_name: str, test_steps: List[Tuple[str, Callable]]) -> Dict[str, Any]:
@@ -268,8 +264,7 @@ class HybridTestRunner:
                 })
                 scenario_success = False
                 
-                if self.debug:
-                    print(f"❌ {step_name} - ERROR: {e}")
+                print(f"❌ {step_name} - ERROR: {e}")
         
         scenario_execution_time = time.time() - scenario_start_time
         
@@ -299,8 +294,7 @@ class HybridTestRunner:
             return True
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to clear state for {repo_name}: {e}")
+            print(f"❌ Failed to clear state for {repo_name}: {e}")
             return False
     
     def test_news_detection(self, repo_name: str, scenario_hint: str = None, hide_execution_log: bool = False) -> bool:
@@ -397,8 +391,7 @@ class HybridTestRunner:
             return output_valid and performance_valid and ai_valid
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ News detection test failed for {repo_name}: {e}")
+            print(f"❌ News detection test failed for {repo_name}: {e}")
             return False
     
     def test_forks_analysis(self, repo_name: str, scenario_hint: str = 'forks_analysis', hide_execution_log: bool = False) -> bool:
@@ -474,8 +467,7 @@ class HybridTestRunner:
             return output_valid and performance_valid and ai_valid
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Forks analysis test failed for {repo_name}: {e}")
+            print(f"❌ Forks analysis test failed for {repo_name}: {e}")
             return False
     
     def create_test_commit(self, repo_name: str, branch: str = 'main', 
@@ -495,8 +487,7 @@ class HybridTestRunner:
             return success
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Failed to create commit for {repo_name}/{branch}: {e}")
+            print(f"❌ Failed to create commit for {repo_name}/{branch}: {e}")
             return False
     
     def cleanup_test_artifacts(self) -> bool:
@@ -517,8 +508,7 @@ class HybridTestRunner:
             return True
             
         except Exception as e:
-            if self.debug:
-                print(f"❌ Cleanup failed: {e}")
+            print(f"❌ Cleanup failed: {e}")
             return False
     
     def get_test_summary(self) -> Dict[str, Any]:
