@@ -252,12 +252,12 @@ timeout 110 python3 test_framework/main_test.py --debug
 # Commit test framework changes from main project directory
 git -C ../github-utils-tests add test_framework/
 git -C ../github-utils-tests commit -m "test: improve validation and framework components"
-git -C ../github-utils-tests push origin test_framework
+# Note: DO NOT push test framework changes to remote
 
 # Alternative: Navigate to worktree directory
 cd ../github-utils-tests
 git add test_framework/ && git commit -m "test: improve validation"
-git push origin test_framework
+# Note: DO NOT push test framework changes to remote
 cd ../github-utils  # Back to main development
 ```
 
