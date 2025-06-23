@@ -10,16 +10,16 @@ from .comment_preserving_parser import CommentPreservingINIParser
 class ConfigManager:
     def __init__(self, config_path='config.txt', state_path='state.json'):
         # Get the directory where this script/module is located
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
         # If paths are relative, make them relative to script directory
         if not os.path.isabs(config_path):
-            self.config_path = os.path.join(script_dir, config_path)
+            self.config_path = os.path.join(self.script_dir, config_path)
         else:
             self.config_path = config_path
             
         if not os.path.isabs(state_path):
-            self.state_path = os.path.join(script_dir, state_path)
+            self.state_path = os.path.join(self.script_dir, state_path)
         else:
             self.state_path = state_path
             
@@ -292,37 +292,45 @@ class ConfigManager:
     def clear_state(self, repo_name=None):
         """Clear state for a specific repository or all repositories"""
         if repo_name is None:
-            # Clear entire state file
-            try:
-                os.remove(self.state_path)
-                return True
-            except FileNotFoundError:
-                return False  # Already cleared
-            except Exception:
-                return False
+            # Clear all state files
+            cleared = False
+            for state_file in ['state.json', 'news_state.json', 'forks_state.json']:
+                state_path = os.path.join(self.script_dir, state_file)
+                try:
+                    os.remove(state_path)
+                    cleared = True
+                except FileNotFoundError:
+                    pass  # Already cleared
+                except Exception:
+                    pass
+            return cleared
         else:
-            # Clear state for specific repository
-            try:
-                state = self.load_state()
-                
-                # Find the repository key (could be just name or owner/repo format)
-                repo_key_to_remove = None
-                for key in state.keys():
-                    # Check if the key matches the repo name directly or contains it
-                    if key == repo_name or key.split('/')[-1] == repo_name:
-                        repo_key_to_remove = key
-                        break
-                
-                if repo_key_to_remove:
-                    del state[repo_key_to_remove]
-                    self.save_state(state)
-                    return True
-                else:
-                    return False  # Repository not found in state
-            except FileNotFoundError:
-                return False  # No state file exists
-            except Exception:
-                return False
+            # Clear state for specific repository from all state files
+            cleared = False
+            for state_file in ['state.json', 'news_state.json', 'forks_state.json']:
+                state_path = os.path.join(self.script_dir, state_file)
+                try:
+                    with open(state_path, 'r') as f:
+                        state = json.load(f)
+                    
+                    # Find the repository key (could be just name or owner/repo format)
+                    repo_key_to_remove = None
+                    for key in state.keys():
+                        # Check if the key matches the repo name directly or contains it
+                        if key == repo_name or key.split('/')[-1] == repo_name:
+                            repo_key_to_remove = key
+                            break
+                    
+                    if repo_key_to_remove:
+                        del state[repo_key_to_remove]
+                        with open(state_path, 'w') as f:
+                            json.dump(state, f, indent=2)
+                        cleared = True
+                except FileNotFoundError:
+                    pass  # No state file exists
+                except Exception:
+                    pass
+            return cleared
     
     def setup_first_run(self):
         """Handle first-run configuration setup"""

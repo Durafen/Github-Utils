@@ -106,6 +106,14 @@ gh api repos/parent/repo/compare/main...fork:repo:main
 # Test specific Python modules directly
 python3 -c "from modules.cost_tracker import CostTracker; print('Cost tracking loaded')"
 python3 -c "from modules.debug_logger import DebugLogger; print('Debug logging loaded')"
+
+# Run comprehensive test framework (all 3 core functionalities)
+timeout 110 python3 test_framework/main_test.py --debug
+
+# Test framework development workflow
+cd ../github-utils-tests          # Edit test framework files
+git add test_framework/ && git commit -m "test: improve validation"
+cd ../github-utils               # Back to main development
 ```
 
 ### Required Dependencies
@@ -206,3 +214,70 @@ class MyProcessor(BaseProcessor, RepositoryProcessorMixin):
 **"First run fails with config error"**
 - Copy template: `cp config.example.txt config.txt`
 - Edit AI provider settings in config.txt
+
+## Test Framework Setup
+
+The project uses a **git worktree + symlink architecture** for cross-branch test framework access:
+
+### Architecture
+- **Main Development**: `test-with-framework` branch (latest main app code)
+- **Test Framework**: `test_framework` branch (pure test framework code only)
+- **Worktree**: `../github-utils-tests` (separate directory for test development)
+- **Symlink**: `test_framework/` → `../github-utils-tests/test_framework/`
+
+### Setup (One-time)
+```bash
+# Create worktree for test framework development
+git worktree add ../github-utils-tests test_framework
+
+# Create symlink in main project (works from any branch)
+ln -s ../github-utils-tests/test_framework ./test_framework
+```
+
+### Directory Structure
+```
+/github-utils/                    # Main project (any branch)
+├── modules/
+├── gh-utils.py
+├── test_framework -> ../github-utils-tests/test_framework/  # Symlink
+└── ...
+
+/github-utils-tests/              # Worktree (test_framework branch)
+├── .gitignore
+└── test_framework/               # Test framework files
+    ├── main_test.py
+    ├── test_runner.py
+    └── ...
+```
+
+### Development Workflow
+```bash
+# Run tests from ANY branch
+timeout 110 python3 test_framework/main_test.py --debug
+
+# Edit test framework
+cd ../github-utils-tests
+# Make changes to test_framework/ files
+git add test_framework/ && git commit -m "test: improve validation"
+git push origin test_framework
+
+# Back to main development
+cd ../github-utils
+# Continue working on main app (commits go to current branch)
+```
+
+### Benefits
+- ✅ **Universal Access**: Run tests from any branch without file copying
+- ✅ **Correct Commits**: Test changes automatically commit to `test_framework` branch
+- ✅ **Live Updates**: Changes in worktree immediately visible in main directory
+- ✅ **Clean Separation**: No mixing of main app and test framework code
+- ✅ **Branch Independence**: Main development unaffected by test framework changes
+
+### Troubleshooting Test Framework
+**"Test framework not found"**
+- Verify symlink: `ls -la test_framework/`
+- Recreate symlink: `ln -s ../github-utils-tests/test_framework ./test_framework`
+
+**"Worktree not found"**
+- Check worktrees: `git worktree list`
+- Recreate if needed: `git worktree add ../github-utils-tests test_framework`

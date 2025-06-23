@@ -27,9 +27,13 @@ class GitHubFetcher:
         if result.returncode != 0:
             raise RuntimeError("GitHub CLI not authenticated. Run 'gh auth login'")
     
-    def _run_gh_command(self, cmd, parse_json=True):
+    def _run_gh_command(self, cmd, parse_json=True, timeout=30):
         """Run gh command with error handling and optional JSON parsing"""
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"GitHub CLI command timed out after {timeout}s: {' '.join(cmd)}")
+        
         if result.returncode != 0:
             raise RuntimeError(f"GitHub CLI command failed: {result.stderr}")
         
@@ -37,9 +41,13 @@ class GitHubFetcher:
             return json.loads(result.stdout)
         return result.stdout if not parse_json else []
     
-    def _run_gh_command_multiline_json(self, cmd):
+    def _run_gh_command_multiline_json(self, cmd, timeout=30):
         """Run gh command and parse multiple JSON objects (one per line)"""
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return []  # Return empty list for timeout instead of raising exception
+        
         if result.returncode != 0:
             return []  # Return empty list instead of raising exception
         
@@ -147,7 +155,7 @@ class GitHubFetcher:
         for filename in readme_files:
             try:
                 cmd = ['gh', 'api', f'repos/{owner}/{repo}/contents/{filename}', '--jq', '.content']
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                 if result.returncode == 0 and result.stdout.strip():
                     # Content is base64 encoded, decode it
                     import base64
@@ -158,7 +166,7 @@ class GitHubFetcher:
                     except Exception:
                         # If decoding fails, return the encoded content
                         return content
-            except Exception:
+            except (subprocess.TimeoutExpired, Exception):
                 continue
         
         return None  # No README found

@@ -30,6 +30,9 @@ config.txt
 state.json
 *.log
 
+# Test framework symlink (worktree architecture)
+test_framework
+
 # OS generated files
 .DS_Store
 .DS_Store?

@@ -145,12 +145,11 @@ def clear_command():
     try:
         config_manager = ConfigManager()
         if config_manager.clear_state(repo_name):
-            print(f"✅ Cleared state for repository: {repo_name}")
+            print(f"Cleared state for repository: {repo_name}")
             print("Next run will treat this repository as first-time and show all recent activity")
         else:
-            print(f"❌ Repository state not found: {repo_name}")
-            print("Repository may not exist in state or state file doesn't exist")
-            sys.exit(1)
+            print(f"No state to clear for: {repo_name}")
+            print("Repository already has clean state")
     except Exception as e:
         print(f"❌ Error clearing repository state: {e}")
         sys.exit(1)
