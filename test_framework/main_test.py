@@ -112,7 +112,17 @@ class MainTestOrchestrator:
                 return False
             
             # Check gh-utils script exists
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            current_file = os.path.abspath(__file__)
+            current_dir = os.path.dirname(current_file)
+            
+            # If we're in a symlinked test_framework, resolve to main project
+            if 'github-utils-tests' in current_dir:
+                # We're in the worktree, main project is ../github-utils
+                project_root = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'github-utils')
+            else:
+                # We're in the main project directory
+                project_root = os.path.dirname(current_dir)
+                
             gh_utils_script = os.path.join(project_root, 'gh-utils.py')
             if not os.path.exists(gh_utils_script):
                 print(f"❌ gh-utils.py not found at {gh_utils_script}")
@@ -141,7 +151,17 @@ class MainTestOrchestrator:
                 'testing': 'https://github.com/Durafen/testing'
             }
             
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            current_file = os.path.abspath(__file__)
+            current_dir = os.path.dirname(current_file)
+            
+            # If we're in a symlinked test_framework, resolve to main project
+            if 'github-utils-tests' in current_dir:
+                # We're in the worktree, main project is ../github-utils
+                project_root = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'github-utils')
+            else:
+                # We're in the main project directory
+                project_root = os.path.dirname(current_dir)
+                
             gh_utils_script = os.path.join(project_root, 'gh-utils.py')
             
             # Test repositories assumed to be already in config.txt
@@ -341,7 +361,7 @@ class MainTestOrchestrator:
         return self.runner.create_test_commit(repo_name, 'main', message)
     
     def _create_test_branch(self, repo_name: str, branch_name: str) -> bool:
-        return self.runner.github_ops.create_test_branch(repo_name, branch_name)
+        return self.runner.github_ops.create_dynamic_test_branch(repo_name, branch_name)
     
     def _create_branch_commit(self, repo_name: str, branch_name: str) -> bool:
         timestamp = int(time.time())

@@ -97,7 +97,17 @@ class TestValidator:
             state_path = state_file
             if not os.path.isabs(state_path):
                 # Assume relative to project root
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                current_file = os.path.abspath(__file__)
+                current_dir = os.path.dirname(current_file)
+                
+                # Always resolve to main project directory (not worktree)
+                # Handle both direct execution and symlinked execution
+                if 'github-utils-tests' in current_dir:
+                    # We're in the worktree, main project is ../github-utils
+                    project_root = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'github-utils')
+                else:
+                    # We're in the main project directory
+                    project_root = os.path.dirname(current_dir)
                 state_path = os.path.join(project_root, state_file)
             
             if not os.path.exists(state_path):
@@ -186,7 +196,18 @@ class TestValidator:
         try:
             state_path = state_file
             if not os.path.isabs(state_path):
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                current_file = os.path.abspath(__file__)
+                current_dir = os.path.dirname(current_file)
+                
+                # Always resolve to main project directory (not worktree)
+                # Handle both direct execution and symlinked execution
+                if 'github-utils-tests' in current_dir:
+                    # We're in the worktree, main project is ../github-utils
+                    project_root = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'github-utils')
+                else:
+                    # We're in the main project directory
+                    project_root = os.path.dirname(current_dir)
+                    
                 state_path = os.path.join(project_root, state_file)
             
             # If state file doesn't exist, consider it cleared
@@ -523,7 +544,18 @@ class TestValidator:
                 print(f"🔍 CRITICAL CHECK: Validating repository access for '{repo_name}'...")
             
             # Step 1: Check config.txt has the repository
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            current_file = os.path.abspath(__file__)
+            current_dir = os.path.dirname(current_file)
+            
+            # Always resolve to main project directory (not worktree)
+            # Handle both direct execution and symlinked execution
+            if 'github-utils-tests' in current_dir:
+                # We're in the worktree, main project is ../github-utils
+                project_root = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'github-utils')
+            else:
+                # We're in the main project directory
+                project_root = os.path.dirname(current_dir)
+                
             config_path = os.path.join(project_root, "config.txt")
             
             if not os.path.exists(config_path):

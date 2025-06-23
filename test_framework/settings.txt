@@ -5,7 +5,7 @@
 # Delete commits created during testing after each phase completes
 # When true: commits are removed after each phase (clean testing)
 # When false: commits persist for manual inspection (debug mode)
-delete_commits_after_phase = false
+delete_commits_after_phase = true
 
 [display]
 # Control output display during test execution

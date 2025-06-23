@@ -191,41 +191,15 @@ class GitHubOperations:
             print(f"❌ Commit creation failed: {e}")
             return False
     
-    def create_test_branch(self, repo_name: str, branch_name: str, 
-                          from_branch: str = 'main') -> bool:
-        """Create a new test branch"""
-        if repo_name not in self.temp_dirs:
-            return False
-        
-        repo_dir = self.temp_dirs[repo_name]
-        
-        try:
-            # Checkout base branch and pull
-            self._run_command(['git', 'checkout', from_branch], cwd=repo_dir)
-            self._run_command(['git', 'pull', 'origin', from_branch], cwd=repo_dir)
-            
-            # Delete existing branch if it exists (both local and remote)
-            self._run_command(['git', 'branch', '-D', branch_name], cwd=repo_dir)  # Ignore errors
-            self._run_command(['git', 'push', 'origin', '--delete', branch_name], cwd=repo_dir)  # Ignore errors
-            
-            # Create and checkout new branch
-            result = self._run_command(['git', 'checkout', '-b', branch_name], cwd=repo_dir)
-            if result.returncode != 0:
-                return False
-            
-            # Push new branch to origin
-            push_result = self._run_command(['git', 'push', '-u', 'origin', branch_name], cwd=repo_dir)
-            
-            if self.debug:
-                status = "✅" if push_result.returncode == 0 else "⚠️"
-                print(f"{status} Branch {branch_name} created/updated on {repo_name}")
-            
-            return push_result.returncode == 0
-            
-        except Exception as e:
-            if self.debug:
-                print(f"❌ Branch creation failed: {e}")
-            return False
+    def _branch_exists_local(self, branch_name: str, repo_dir: str) -> bool:
+        """Check if branch exists locally"""
+        result = self._run_command(['git', 'branch', '--list', branch_name], cwd=repo_dir)
+        return result.stdout.strip() != ''
+
+    def _branch_exists_remote(self, branch_name: str, repo_dir: str) -> bool:
+        """Check if branch exists on remote"""
+        result = self._run_command(['git', 'ls-remote', '--heads', 'origin', branch_name], cwd=repo_dir)
+        return result.stdout.strip() != ''
     
     def create_dynamic_test_branch(self, repo_name: str, branch_name: str) -> bool:
         """Create a new branch with specified unique name"""
@@ -240,9 +214,11 @@ class GitHubOperations:
             self._run_command(['git', 'checkout', 'main'], cwd=repo_dir)
             self._run_command(['git', 'pull', 'origin', 'main'], cwd=repo_dir)
             
-            # Force delete branch if exists (local + remote)
-            self._run_command(['git', 'branch', '-D', branch_name], cwd=repo_dir)
-            self._run_command(['git', 'push', 'origin', '--delete', branch_name], cwd=repo_dir)
+            # Check and delete existing branch if it exists
+            if self._branch_exists_local(branch_name, repo_dir):
+                self._run_command(['git', 'branch', '-D', branch_name], cwd=repo_dir)
+            if self._branch_exists_remote(branch_name, repo_dir):
+                self._run_command(['git', 'push', 'origin', '--delete', branch_name], cwd=repo_dir)
             
             # Create new branch
             result = self._run_command(['git', 'checkout', '-b', branch_name], cwd=repo_dir)

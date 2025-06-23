@@ -424,7 +424,7 @@ class HybridTestRunner:
                 return performance_valid
             
             # Validate output contains fork-specific patterns
-            expected_patterns = ['📊', 'Forks Summary', '=', '\\(\\d+/\\d+ \\)']
+            expected_patterns = ['📊', 'Forks Summary', '=', '\\(\\d+/\\d+\\)']
             output_valid = self.validator.validate_output_contains(
                 stdout, expected_patterns, f"forks_{repo_name}"
             )

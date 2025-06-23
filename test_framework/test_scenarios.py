@@ -74,7 +74,7 @@ class TestScenariosManager:
             ]),
             ('news_forks_feature_branch', [
                 ('Clear ccusage news state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Create feature branch', lambda: self._create_test_branch('ccusage', 'test-feature')),
+                ('Create feature branch', lambda: self._create_dynamic_test_branch('ccusage', 'test-feature')),
                 ('Create feature branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
                 ('Test branch news detection', lambda: self.runner.test_news_detection('ccusage', 'news_branch')),
                 ('Validate branch patterns', lambda: self._validate_branch_news()),
@@ -108,7 +108,7 @@ class TestScenariosManager:
             ]),
             ('news_regular_feature_branch', [
                 ('Clear testing state', lambda: self.runner.clear_repository_state('testing')),
-                ('Create feature branch', lambda: self._create_test_branch('testing', 'test-feature')),
+                ('Create feature branch', lambda: self._create_dynamic_test_branch('testing', 'test-feature')),
                 ('Create feature branch commit', lambda: self._create_branch_commit('testing', 'test-feature')),
                 ('Test branch news detection', lambda: self.runner.test_news_detection('testing', 'news_branch')),
                 ('Validate branch patterns', lambda: self._validate_branch_news()),
@@ -148,10 +148,10 @@ class TestScenariosManager:
             print(f"❌ Failed to create main commit for {repo_name}: {e}")
             return False
     
-    def _create_test_branch(self, repo_name: str, branch_name: str) -> bool:
-        """Create a test branch"""
+    def _create_dynamic_test_branch(self, repo_name: str, branch_name: str) -> bool:
+        """Create a dynamic test branch"""
         try:
-            success = self.runner.github_ops.create_test_branch(repo_name, branch_name)
+            success = self.runner.github_ops.create_dynamic_test_branch(repo_name, branch_name)
             
             if self.debug and success:
                 print(f"✅ Created branch {branch_name} for {repo_name}")
