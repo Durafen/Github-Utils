@@ -166,13 +166,13 @@ class MainTestOrchestrator:
         """Run forks analysis test scenarios with 7-step validation cycle"""
         scenarios = [
             ('forks_7step_analysis', [
-                ('Clear ccusage state', lambda: self.runner.clear_repository_state('ccusage')),
+                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline')),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_main')),
                 ('Create branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
-                ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits('ccusage')),
-                ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ccusage', 'forks_multi')),
             ])
         ]
         
@@ -188,7 +188,7 @@ class MainTestOrchestrator:
         """Run news about forks test scenarios with 7-step validation cycle"""
         scenarios = [
             ('news_forks_7step_analysis', [
-                ('Clear test-ccusage state', lambda: self.runner.clear_repository_state('test-ccusage')),
+                ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline')),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_main')),
                 ('Create branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
@@ -210,7 +210,7 @@ class MainTestOrchestrator:
         """Run news about regular repository test scenarios with 7-step validation cycle"""
         scenarios = [
             ('news_regular_7step_analysis', [
-                ('Clear testing state', lambda: self.runner.clear_repository_state('testing')),
+                ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline')),
                 ('Create main branch commit', lambda: self._create_main_commit('testing')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('testing', 'news_main')),
                 ('Create branch commit', lambda: self._create_branch_commit('testing', 'test-feature')),

@@ -144,7 +144,13 @@ class GitHubOperations:
             if self.debug:
                 print(f"✅ Created commit on {repo_name}/{branch}: {message}")
             else:
-                print(f"📝 Commit: {repo_name}/{branch}")
+                # Show the actual GitHub repository owner/name
+                repo_url = self.test_repos.get(repo_name, '')
+                if 'github.com/' in repo_url:
+                    repo_path = repo_url.split('github.com/')[-1].rstrip('.git')
+                    print(f"📝 Commit: {repo_path}/{branch}")
+                else:
+                    print(f"📝 Commit: {repo_name}/{branch}")
             
             # Small delay to ensure GitHub API reflects the change
             time.sleep(2)
