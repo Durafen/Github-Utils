@@ -212,9 +212,9 @@ class MainTestOrchestrator:
         return overall_success_rate >= 0.8  # 80% success rate threshold
     
     def _run_forks_analysis_tests(self) -> list:
-        """Run forks analysis test scenarios with 8-step validation cycle"""
+        """Run forks analysis test scenarios with 10-step validation cycle"""
         scenarios = [
-            ('forks_8step_analysis', [
+            ('forks_10step_analysis', [
                 ('Clear repository states', lambda: self._clear_all_repository_states()),
                 ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
@@ -223,6 +223,8 @@ class MainTestOrchestrator:
                 ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ccusage')),
                 ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ccusage', 'forks_multi')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ccusage') and self.scenarios_manager._create_commit_on_new_branch('ccusage')),
+                ('Test forks analysis after NEW branch commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_new_branch')),
             ])
         ]
         
@@ -246,9 +248,9 @@ class MainTestOrchestrator:
         return results
     
     def _run_news_about_forks_tests(self) -> list:
-        """Run news about forks test scenarios with 7-step validation cycle"""
+        """Run news about forks test scenarios with 10-step validation cycle"""
         scenarios = [
-            ('news_forks_7step_analysis', [
+            ('news_forks_10step_analysis', [
                 ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_main')),
@@ -256,6 +258,8 @@ class MainTestOrchestrator:
                 ('Test news after branch commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ccusage')),
                 ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('test-ccusage', 'news_multi')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ccusage') and self.scenarios_manager._create_commit_on_new_branch('ccusage')),
+                ('Test news after NEW branch commit', lambda: self.runner.test_news_detection('test-ccusage', 'new_branch')),
             ])
         ]
         
@@ -279,9 +283,9 @@ class MainTestOrchestrator:
         return results
     
     def _run_news_about_regular_tests(self) -> list:
-        """Run news about regular repository test scenarios with 7-step validation cycle"""
+        """Run news about regular repository test scenarios with 10-step validation cycle"""
         scenarios = [
-            ('news_regular_7step_analysis', [
+            ('news_regular_10step_analysis', [
                 ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('testing')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('testing', 'news_main')),
@@ -289,6 +293,8 @@ class MainTestOrchestrator:
                 ('Test news after branch commit', lambda: self.runner.test_news_detection('testing', 'news_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('testing')),
                 ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('testing', 'news_multi')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('testing') and self.scenarios_manager._create_commit_on_new_branch('testing')),
+                ('Test news after NEW branch commit', lambda: self.runner.test_news_detection('testing', 'new_branch')),
             ])
         ]
         

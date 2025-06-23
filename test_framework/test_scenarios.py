@@ -192,8 +192,16 @@ class TestScenariosManager:
             
             success = self.runner.github_ops.create_dynamic_test_branch(repo_name, branch_name)
             
-            if self.debug and success:
-                print(f"✅ Created NEW branch: {branch_name} for {repo_name}")
+            if success:
+                # Use same format as other commits - extract real GitHub path
+                repo_url = self.runner.github_ops.test_repos.get(repo_name, '')
+                if 'github.com/' in repo_url:
+                    repo_path = repo_url.split('github.com/')[-1]
+                    if repo_path.endswith('.git'):
+                        repo_path = repo_path[:-4]
+                    print(f"🌿 Branch: {repo_path}/{branch_name}")
+                else:
+                    print(f"🌿 Branch: {repo_name}/{branch_name}")
             
             return success
             
@@ -215,8 +223,16 @@ class TestScenariosManager:
             message = f"Test new branch commit - {timestamp}"
             success = self.runner.create_test_commit(repo_name, branch_name, message)
             
-            if self.debug and success:
-                print(f"✅ Created commit on NEW branch {repo_name}/{branch_name}")
+            if success:
+                # Use same format as other commits - extract real GitHub path
+                repo_url = self.runner.github_ops.test_repos.get(repo_name, '')
+                if 'github.com/' in repo_url:
+                    repo_path = repo_url.split('github.com/')[-1]
+                    if repo_path.endswith('.git'):
+                        repo_path = repo_path[:-4]
+                    print(f"📝 Commit: {repo_path}/{branch_name}")
+                else:
+                    print(f"📝 Commit: {repo_name}/{branch_name}")
             
             return success
             
