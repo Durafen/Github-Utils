@@ -716,7 +716,7 @@ if __name__ == "__main__":
     validator.validate_command_success(True, "test_command")
     
     # Test output validation
-    test_output = "📊 ccusage Summary (+11) (0h ago) ($<0.001, 772 tokens)\n- Added offline flag support to blocks command"
+    test_output = "📊 ant-javacard Summary (+11) (0h ago) ($<0.001, 772 tokens)\n- Added offline flag support to blocks command"
     validator.validate_output_contains(
         test_output, 
         ["📊", "Summary", "tokens", "-"], 
@@ -724,7 +724,7 @@ if __name__ == "__main__":
     )
     
     # Test AI response validation
-    test_ai_response = "📊 ccusage Summary (+11) (0h ago) ($<0.001, 772 tokens)\n- Added offline flag support to blocks command\n- Enhanced multi-directory support"
+    test_ai_response = "📊 ant-javacard Summary (+11) (0h ago) ($<0.001, 772 tokens)\n- Added offline flag support to blocks command\n- Enhanced multi-directory support"
     validator.validate_ai_response_format(test_ai_response)
     
     # Get summary

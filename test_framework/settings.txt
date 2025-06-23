@@ -11,12 +11,12 @@ delete_commits_after_phase = true
 # Control output display during test execution
 # When true: first run output is hidden (baseline establishment)
 # When false: all output is shown including first runs
-hide_first_run_output = true
+hide_first_run_output = false
 
 # [phases]
 # # Test framework runs 3 main phases:
-# # 1. forks_analysis    - Tests ./gh-utils.py forks ccusage
-# # 2. news_about_forks  - Tests ./gh-utils.py news test-ccusage  
+# # 1. forks_analysis    - Tests ./gh-utils.py forks ant-javacard
+# # 2. news_about_forks  - Tests ./gh-utils.py news test-ant-javacard  
 # # 3. news_regular_repo - Tests ./gh-utils.py news testing
 # 
 # # Enable/disable individual phases
@@ -31,8 +31,8 @@ hide_first_run_output = true
 
 # [repositories]
 # # Test repositories used by the framework
-# forks_test_repo = ccusage           # Fork analysis target
-# news_fork_repo = test-ccusage       # News testing on fork
+# forks_test_repo = ant-javacard           # Fork analysis target
+# news_fork_repo = test-ant-javacard       # News testing on fork
 # news_regular_repo = testing         # News testing on regular repo
 
 # [timing]

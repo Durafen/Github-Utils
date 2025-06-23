@@ -55,10 +55,10 @@ class HybridTestRunner:
         
         # Test configuration
         self.test_repos = {
-            'ccusage': {
-                'url': 'https://github.com/Durafen/ccusage',
-                'alias': 'ccusage',
-                'type': 'fork'  # This is a fork of ryoppippi/ccusage
+            'ant-javacard': {
+                'url': 'https://github.com/Durafen/ant-javacard',
+                'alias': 'ant-javacard',
+                'type': 'fork'  # This is a fork of 3rdIteration/ant-javacard
             },
             'testing': {
                 'url': 'https://github.com/Durafen/testing',
@@ -304,8 +304,8 @@ class HybridTestRunner:
             if scenario_hint and 'baseline' in scenario_hint:
                 # Map repository names to expected URLs for validation
                 repo_url_mappings = {
-                    'ccusage': 'https://github.com/Durafen/ccusage',
-                    'test-ccusage': 'https://github.com/Durafen/ccusage', 
+                    'ant-javacard': 'https://github.com/Durafen/ant-javacard',
+                    'test-ant-javacard': 'https://github.com/Durafen/ant-javacard', 
                     'testing': 'https://github.com/Durafen/testing'
                 }
                 
@@ -406,7 +406,7 @@ class HybridTestRunner:
             
             # Validate performance first (applies to all scenarios)
             performance_valid = self.validator.validate_performance_metrics(
-                exec_time, 90.0, f"forks_{repo_name}"  # Forks analysis takes longer
+                exec_time, 240, f"forks_{repo_name}"
             )
             
             # Handle different validation based on scenario

@@ -144,9 +144,9 @@ class MainTestOrchestrator:
             # Test repositories configuration
             test_repos = {
                 # For forks analysis
-                'ccusage': 'https://github.com/Durafen/ccusage',
+                'ant-javacard': 'https://github.com/Durafen/ant-javacard',
                 # For news about forks (treated as regular repo)
-                'test-ccusage': 'https://github.com/Durafen/ccusage',
+                'test-ant-javacard': 'https://github.com/Durafen/ant-javacard',
                 # For news about regular repository
                 'testing': 'https://github.com/Durafen/testing'
             }
@@ -182,8 +182,8 @@ class MainTestOrchestrator:
             print("🧪 STARTING COMPLETE GH-UTILS TEST SUITE")
             print("="*80)
             print("Testing 3 core functionalities:")
-            print("1. 🍴 Forks Analysis: ./gh-utils.py forks ccusage")
-            print("2. 📰 News about Forks: ./gh-utils.py news test-ccusage")
+            print("1. 🍴 Forks Analysis: ./gh-utils.py forks ant-javacard")
+            print("2. 📰 News about Forks: ./gh-utils.py news test-ant-javacard")
             print("3. 📰 News about Regular: ./gh-utils.py news testing")
             print("="*80)
         
@@ -197,7 +197,7 @@ class MainTestOrchestrator:
         forks_results = self._run_forks_analysis_tests()
         self.reporter.add_test_results('forks_analysis', forks_results)
         
-        # Test Type 2: News about Forks (using test-ccusage alias)
+        # Test Type 2: News about Forks (using test-ant-javacard alias)
         print("\n\n\n\n📰 TEST PHASE 2: NEWS ABOUT FORKS")
         print("=" * 60)
         
@@ -235,15 +235,15 @@ class MainTestOrchestrator:
         scenarios = [
             ('forks_10step_analysis', [
                 ('Clear repository states', lambda: self._clear_all_repository_states()),
-                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
-                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_main')),
-                ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
-                ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_branch')),
-                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ccusage')),
-                ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ccusage', 'forks_multi')),
-                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ccusage') and self.scenarios_manager._create_commit_on_new_branch('ccusage')),
-                ('Test forks analysis after NEW branch commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_new_branch')),
+                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
+                ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
+                ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_main')),
+                ('Create branch commit', lambda: self._create_branch_commit_dynamic('ant-javacard')),
+                ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_branch')),
+                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ant-javacard')),
+                ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_multi')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ant-javacard') and self.scenarios_manager._create_commit_on_new_branch('ant-javacard')),
+                ('Test forks analysis after NEW branch commit', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_new_branch')),
             ])
         ]
         
@@ -270,15 +270,15 @@ class MainTestOrchestrator:
         """Run news about forks test scenarios with 10-step validation cycle"""
         scenarios = [
             ('news_forks_10step_analysis', [
-                ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
-                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Test news after main commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_main')),
-                ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
-                ('Test news after branch commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_branch')),
-                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ccusage')),
-                ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('test-ccusage', 'news_multi')),
-                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ccusage') and self.scenarios_manager._create_commit_on_new_branch('ccusage')),
-                ('Test news after NEW branch commit', lambda: self.runner.test_news_detection('test-ccusage', 'new_branch')),
+                ('Run news baseline', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
+                ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
+                ('Test news after main commit', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_main')),
+                ('Create branch commit', lambda: self._create_branch_commit_dynamic('ant-javacard')),
+                ('Test news after branch commit', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_branch')),
+                ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ant-javacard')),
+                ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_multi')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ant-javacard') and self.scenarios_manager._create_commit_on_new_branch('ant-javacard')),
+                ('Test news after NEW branch commit', lambda: self.runner.test_news_detection('test-ant-javacard', 'new_branch')),
             ])
         ]
         
@@ -339,7 +339,7 @@ class MainTestOrchestrator:
     # Helper methods (same as in TestScenariosManager but simplified)
     def _clear_all_repository_states(self) -> bool:
         """Clear repository states for all test repositories"""
-        test_repos = ['ccusage', 'test-ccusage', 'testing']
+        test_repos = ['ant-javacard', 'test-ant-javacard', 'testing']
         success = True
         
         for repo_name in test_repos:
@@ -476,8 +476,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Test Types:
-  1. Forks Analysis:        ./gh-utils.py forks ccusage
-  2. News about Forks:     ./gh-utils.py news test-ccusage  
+  1. Forks Analysis:        ./gh-utils.py forks ant-javacard
+  2. News about Forks:     ./gh-utils.py news test-ant-javacard  
   3. News about Regular:   ./gh-utils.py news testing
 
 Examples:

@@ -26,7 +26,7 @@ class GitHubOperations:
         self.debug = debug
         self.temp_dirs = {}
         self.test_repos = {
-            'ccusage': 'https://github.com/Durafen/ccusage',
+            'ant-javacard': 'https://github.com/Durafen/ant-javacard',
             'testing': 'https://github.com/Durafen/testing'
         }
         self._check_github_auth()
@@ -55,7 +55,7 @@ class GitHubOperations:
     def _run_command(self, cmd: List[str], cwd: Optional[str] = None, timeout: int = 30) -> subprocess.CompletedProcess:
         """Run command with error handling and real-time output"""
         try:
-            if self.debug:
+            if self.debug and not ('git' in cmd and 'log' in cmd and '--max-count' in cmd):
                 print(f"🔧 Running: {' '.join(cmd)}")
             
             # Use elegant real-time subprocess solution
@@ -627,11 +627,15 @@ class GitHubOperations:
         
         try:
             for branch in test_branches:
-                # Delete remote branch
-                result = self._run_command(['git', 'push', 'origin', '--delete', branch], cwd=repo_dir)
-                if self.debug:
-                    status = "✅" if result.returncode == 0 else "ℹ️"
-                    print(f"{status} Cleaned up remote branch {branch} on {repo_name}")
+                # Check if remote branch exists before deletion
+                if self._branch_exists_remote(branch, repo_dir):
+                    result = self._run_command(['git', 'push', 'origin', '--delete', branch], cwd=repo_dir)
+                    if self.debug:
+                        status = "✅" if result.returncode == 0 else "❌"
+                        print(f"{status} Cleaned up remote branch {branch} on {repo_name}")
+                else:
+                    if self.debug:
+                        print(f"ℹ️ Remote branch {branch} does not exist on {repo_name}, skipping")
             return True
         except Exception as e:
             print(f"⚠️ Branch cleanup failed: {e}")

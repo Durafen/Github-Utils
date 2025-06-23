@@ -10,11 +10,11 @@ The Hybrid Testing Framework uses **real GitHub repository operations** combined
 
 The framework validates 3 core gh-utils functionalities:
 
-1. **🍴 Forks Analysis**: `./gh-utils.py forks ccusage`
+1. **🍴 Forks Analysis**: `./gh-utils.py forks ant-javacard`
    - Tests fork detection and analysis capabilities
    - Validates multi-branch fork comparison
 
-2. **📰 News about Forks**: `./gh-utils.py news test-ccusage`
+2. **📰 News about Forks**: `./gh-utils.py news test-ant-javacard`
    - Tests news detection on a fork repository (treated as regular repo)
    - Validates branch analysis and state management
 
@@ -29,7 +29,7 @@ The framework validates 3 core gh-utils functionalities:
 - GitHub CLI authenticated: `gh auth login`
 - Python 3.7+
 - Access to test repositories:
-  - `https://github.com/Durafen/ccusage` (fork)
+  - `https://github.com/Durafen/ant-javacard` (fork)
   - `https://github.com/Durafen/testing` (regular)
 
 ### Running Tests
@@ -98,9 +98,9 @@ The framework features **improved visual formatting** with cleaner phase separat
 
 🍴 TEST PHASE 1: FORKS ANALYSIS
 ============================================================
-🔧 Executing: python3 .../gh-utils.py forks ccusage
+🔧 Executing: python3 .../gh-utils.py forks ant-javacard
 ✅ Command completed in 53.54s
-🔧 Executing: python3 .../gh-utils.py forks ccusage
+🔧 Executing: python3 .../gh-utils.py forks ant-javacard
 [Fork analysis output displayed...]
 ✅ Command completed in 43.40s
 
@@ -109,9 +109,9 @@ The framework features **improved visual formatting** with cleaner phase separat
 
 📰 TEST PHASE 2: NEWS ABOUT FORKS
 ============================================================
-🔧 Executing: python3 .../gh-utils.py news test-ccusage
+🔧 Executing: python3 .../gh-utils.py news test-ant-javacard
 ✅ Command completed in 16.98s
-🔧 Executing: python3 .../gh-utils.py news test-ccusage
+🔧 Executing: python3 .../gh-utils.py news test-ant-javacard
 [News analysis output displayed...]
 ✅ Command completed in 13.69s
 
@@ -250,7 +250,7 @@ The framework now includes **advanced output validation** that detects broken ma
 
 **Sample Validation Failure Output:**
 ```
-🔧 Executing: python3 .../gh-utils.py forks ccusage
+🔧 Executing: python3 .../gh-utils.py forks ant-javacard
 🚨 CRITICAL VALIDATION FAILURE!
    Content density validation failed, Section completeness validation failed
    This indicates the main gh-utils program has bugs!

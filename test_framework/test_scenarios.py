@@ -31,67 +31,67 @@ class TestScenariosManager:
         }
     
     def _get_forks_analysis_scenarios(self) -> List[Tuple[str, List[Tuple[str, Callable]]]]:
-        """Test Type 1: Forks Analysis - ./gh-utils.py forks ccusage"""
+        """Test Type 1: Forks Analysis - ./gh-utils.py forks ant-javacard"""
         return [
             ('forks_basic_analysis', [
-                ('Clear ccusage state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Test forks analysis command', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Clear ant-javacard state', lambda: self.runner.clear_repository_state('ant-javacard')),
+                ('Test forks analysis command', lambda: self.runner.test_forks_analysis('ant-javacard')),
                 ('Validate fork detection patterns', lambda: self._validate_fork_output_patterns()),
                 ('Verify performance metrics', lambda: self._validate_forks_performance()),
             ]),
             ('forks_main_branch', [
-                ('Clear ccusage state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Test main branch forks detection', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Clear ant-javacard state', lambda: self.runner.clear_repository_state('ant-javacard')),
+                ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
+                ('Test main branch forks detection', lambda: self.runner.test_forks_analysis('ant-javacard')),
                 ('Validate main branch patterns', lambda: self._validate_fork_output_patterns()),
                 ('Verify state update', lambda: self._validate_forks_performance()),
             ]),
             ('forks_multi_branch', [
-                ('Clear ccusage state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Create feature branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
-                ('Test multi-branch forks detection', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Clear ant-javacard state', lambda: self.runner.clear_repository_state('ant-javacard')),
+                ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
+                ('Create feature branch commit', lambda: self._create_branch_commit('ant-javacard', 'test-feature')),
+                ('Test multi-branch forks detection', lambda: self.runner.test_forks_analysis('ant-javacard')),
                 ('Validate multi-branch patterns', lambda: self._validate_fork_output_patterns()),
                 ('Verify comprehensive performance', lambda: self._validate_forks_performance()),
             ]),
             ('forks_new_branch_analysis', [
-                ('Create NEW branch', lambda: self._create_new_single_branch('ccusage')),
-                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('ccusage')),
-                ('Test NEW branch forks detection', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Create NEW branch', lambda: self._create_new_single_branch('ant-javacard')),
+                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('ant-javacard')),
+                ('Test NEW branch forks detection', lambda: self.runner.test_forks_analysis('ant-javacard')),
                 ('Validate NEW branch in forks output', lambda: self._validate_new_branch_in_forks()),
             ])
         ]
     
     def _get_news_about_forks_scenarios(self) -> List[Tuple[str, List[Tuple[str, Callable]]]]:
-        """Test Type 2: News About Forks - ./gh-utils.py news ccusage (treating fork as regular repo)"""
+        """Test Type 2: News About Forks - ./gh-utils.py news ant-javacard (treating fork as regular repo)"""
         return [
             ('news_forks_main_branch', [
-                ('Clear ccusage news state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Test main branch news detection', lambda: self.runner.test_news_detection('ccusage', 'news_main')),
+                ('Clear ant-javacard news state', lambda: self.runner.clear_repository_state('ant-javacard')),
+                ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
+                ('Test main branch news detection', lambda: self.runner.test_news_detection('ant-javacard', 'news_main')),
                 ('Validate main branch patterns', lambda: self._validate_main_branch_news()),
-                ('Verify state update', lambda: self._validate_state_updated('ccusage')),
+                ('Verify state update', lambda: self._validate_state_updated('ant-javacard')),
             ]),
             ('news_forks_feature_branch', [
-                ('Clear ccusage news state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Create feature branch', lambda: self._create_dynamic_test_branch('ccusage', 'test-feature')),
-                ('Create feature branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
-                ('Test branch news detection', lambda: self.runner.test_news_detection('ccusage', 'news_branch')),
+                ('Clear ant-javacard news state', lambda: self.runner.clear_repository_state('ant-javacard')),
+                ('Create feature branch', lambda: self._create_dynamic_test_branch('ant-javacard', 'test-feature')),
+                ('Create feature branch commit', lambda: self._create_branch_commit('ant-javacard', 'test-feature')),
+                ('Test branch news detection', lambda: self.runner.test_news_detection('ant-javacard', 'news_branch')),
                 ('Validate branch patterns', lambda: self._validate_branch_news()),
-                ('Verify branch state update', lambda: self._validate_branch_state_updated('ccusage', 'test-feature')),
+                ('Verify branch state update', lambda: self._validate_branch_state_updated('ant-javacard', 'test-feature')),
             ]),
             ('news_forks_multi_branch', [
-                ('Clear ccusage news state', lambda: self.runner.clear_repository_state('ccusage')),
-                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
-                ('Create feature branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
-                ('Test multi-branch news detection', lambda: self.runner.test_news_detection('ccusage', 'news_multi')),
+                ('Clear ant-javacard news state', lambda: self.runner.clear_repository_state('ant-javacard')),
+                ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
+                ('Create feature branch commit', lambda: self._create_branch_commit('ant-javacard', 'test-feature')),
+                ('Test multi-branch news detection', lambda: self.runner.test_news_detection('ant-javacard', 'news_multi')),
                 ('Validate multi-branch patterns', lambda: self._validate_multi_branch_news()),
-                ('Verify comprehensive state', lambda: self._validate_comprehensive_state('ccusage')),
+                ('Verify comprehensive state', lambda: self._validate_comprehensive_state('ant-javacard')),
             ]),
             ('news_forks_new_branch', [
-                ('Create NEW branch', lambda: self._create_new_single_branch('ccusage')),
-                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('ccusage')),
-                ('Test NEW branch news detection', lambda: self.runner.test_news_detection('ccusage', 'new_branch')),
+                ('Create NEW branch', lambda: self._create_new_single_branch('ant-javacard')),
+                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('ant-javacard')),
+                ('Test NEW branch news detection', lambda: self.runner.test_news_detection('ant-javacard', 'new_branch')),
                 ('Validate NEW branch patterns', lambda: self._validate_new_single_branch()),
             ])
         ]
