@@ -1,0 +1,250 @@
+{
+  "session_start": "2025-06-23T00:58:43.651739",
+  "test_results": {
+    "forks_analysis": [
+      {
+        "name": "forks_basic_analysis",
+        "success": false,
+        "execution_time": 4.825204849243164,
+        "steps": [
+          {
+            "name": "Clear ccusage state",
+            "success": false,
+            "execution_time": 1.024049997329712,
+            "timestamp": "2025-06-23T00:58:44.675965"
+          },
+          {
+            "name": "Test forks analysis command",
+            "success": false,
+            "execution_time": 3.8010799884796143,
+            "timestamp": "2025-06-23T00:58:48.477067"
+          },
+          {
+            "name": "Validate fork detection patterns",
+            "success": true,
+            "execution_time": 3.0994415283203125e-06,
+            "timestamp": "2025-06-23T00:58:48.477088"
+          },
+          {
+            "name": "Verify performance metrics",
+            "success": true,
+            "execution_time": 1.1920928955078125e-06,
+            "timestamp": "2025-06-23T00:58:48.477104"
+          }
+        ],
+        "timestamp": "2025-06-23T00:58:48.477112"
+      }
+    ],
+    "news_about_forks": [
+      {
+        "name": "news_forks_main_branch",
+        "success": false,
+        "execution_time": 22.083298921585083,
+        "steps": [
+          {
+            "name": "Clear test-ccusage news state",
+            "success": false,
+            "execution_time": 0.14545273780822754,
+            "timestamp": "2025-06-23T00:58:50.627716"
+          },
+          {
+            "name": "Create main branch commit",
+            "success": true,
+            "execution_time": 7.372812032699585,
+            "timestamp": "2025-06-23T00:58:58.000640"
+          },
+          {
+            "name": "Test main branch news detection",
+            "success": false,
+            "execution_time": 14.564259052276611,
+            "timestamp": "2025-06-23T00:59:12.565110"
+          },
+          {
+            "name": "Validate main branch patterns",
+            "success": true,
+            "execution_time": 1.6689300537109375e-06,
+            "timestamp": "2025-06-23T00:59:12.565128"
+          },
+          {
+            "name": "Verify state update",
+            "success": false,
+            "execution_time": 0.0003859996795654297,
+            "timestamp": "2025-06-23T00:59:12.565523"
+          }
+        ],
+        "timestamp": "2025-06-23T00:59:12.565540"
+      },
+      {
+        "name": "news_forks_feature_branch",
+        "success": false,
+        "execution_time": 23.03079915046692,
+        "steps": [
+          {
+            "name": "Clear test-ccusage news state",
+            "success": false,
+            "execution_time": 0.1121678352355957,
+            "timestamp": "2025-06-23T00:59:14.681064"
+          },
+          {
+            "name": "Create feature branch",
+            "success": true,
+            "execution_time": 1.9221901893615723,
+            "timestamp": "2025-06-23T00:59:16.603338"
+          },
+          {
+            "name": "Create feature branch commit",
+            "success": true,
+            "execution_time": 7.249054908752441,
+            "timestamp": "2025-06-23T00:59:23.852490"
+          },
+          {
+            "name": "Test branch news detection",
+            "success": false,
+            "execution_time": 13.746608972549438,
+            "timestamp": "2025-06-23T00:59:37.599190"
+          },
+          {
+            "name": "Validate branch patterns",
+            "success": true,
+            "execution_time": 3.0994415283203125e-06,
+            "timestamp": "2025-06-23T00:59:37.599202"
+          },
+          {
+            "name": "Verify branch state update",
+            "success": false,
+            "execution_time": 0.0004470348358154297,
+            "timestamp": "2025-06-23T00:59:37.599658"
+          }
+        ],
+        "timestamp": "2025-06-23T00:59:37.599674"
+      }
+    ],
+    "news_about_regular": [
+      {
+        "name": "news_regular_main_branch",
+        "success": false,
+        "execution_time": 21.325103998184204,
+        "steps": [
+          {
+            "name": "Clear testing state",
+            "success": true,
+            "execution_time": 0.1064448356628418,
+            "timestamp": "2025-06-23T00:59:39.708105"
+          },
+          {
+            "name": "Create main branch commit",
+            "success": true,
+            "execution_time": 7.264836072921753,
+            "timestamp": "2025-06-23T00:59:46.972987"
+          },
+          {
+            "name": "Test main branch news detection",
+            "success": false,
+            "execution_time": 13.952896118164062,
+            "timestamp": "2025-06-23T01:00:00.926002"
+          },
+          {
+            "name": "Validate main branch patterns",
+            "success": true,
+            "execution_time": 2.1457672119140625e-06,
+            "timestamp": "2025-06-23T01:00:00.926018"
+          },
+          {
+            "name": "Verify state update",
+            "success": true,
+            "execution_time": 0.0007197856903076172,
+            "timestamp": "2025-06-23T01:00:00.926749"
+          }
+        ],
+        "timestamp": "2025-06-23T01:00:00.926761"
+      },
+      {
+        "name": "news_regular_feature_branch",
+        "success": false,
+        "execution_time": 26.130845308303833,
+        "steps": [
+          {
+            "name": "Clear testing state",
+            "success": true,
+            "execution_time": 0.13037490844726562,
+            "timestamp": "2025-06-23T01:00:03.061782"
+          },
+          {
+            "name": "Create feature branch",
+            "success": true,
+            "execution_time": 1.9928550720214844,
+            "timestamp": "2025-06-23T01:00:05.054672"
+          },
+          {
+            "name": "Create feature branch commit",
+            "success": true,
+            "execution_time": 7.032933712005615,
+            "timestamp": "2025-06-23T01:00:12.087722"
+          },
+          {
+            "name": "Test branch news detection",
+            "success": false,
+            "execution_time": 16.973917961120605,
+            "timestamp": "2025-06-23T01:00:29.061760"
+          },
+          {
+            "name": "Validate branch patterns",
+            "success": true,
+            "execution_time": 3.0994415283203125e-06,
+            "timestamp": "2025-06-23T01:00:29.061779"
+          },
+          {
+            "name": "Verify branch state update",
+            "success": true,
+            "execution_time": 0.0004448890686035156,
+            "timestamp": "2025-06-23T01:00:29.062237"
+          }
+        ],
+        "timestamp": "2025-06-23T01:00:29.062247"
+      }
+    ]
+  },
+  "summary": {
+    "overall": {
+      "test_types": 3,
+      "scenarios": {
+        "total": 5,
+        "successful": 0,
+        "success_rate": 0.0
+      },
+      "steps": {
+        "total": 26,
+        "successful": 16,
+        "success_rate": 0.6153846153846154
+      }
+    },
+    "performance": {
+      "avg_scenario_time": 19.47905044555664,
+      "total_execution_time": 97.3952522277832,
+      "session_duration": 107.413541
+    },
+    "test_type_breakdown": {
+      "forks_analysis": {
+        "total": 1,
+        "successful": 0,
+        "success_rate": 0.0,
+        "avg_time": 4.825204849243164
+      },
+      "news_about_forks": {
+        "total": 2,
+        "successful": 0,
+        "success_rate": 0.0,
+        "avg_time": 22.557049036026
+      },
+      "news_about_regular": {
+        "total": 2,
+        "successful": 0,
+        "success_rate": 0.0,
+        "avg_time": 23.72797465324402
+      }
+    }
+  },
+  "metadata": {},
+  "session_end": "2025-06-23T01:00:31.065280",
+  "session_duration": 107.413541
+}

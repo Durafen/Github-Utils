@@ -1,0 +1,52 @@
+# Full AI Prompt for ccusage - refresh branch
+# Generated at: 2025-06-23T01:58:52.554713
+# Prompt type: summary
+# Prompt length: 2235 characters
+# ============================================================
+
+Summarize recent activity for ccusage - refresh branch repository:
+
+- chore: release v14.1.0 (by ryoppippi on 2025-06-20T11:33:49Z)
+- fix: add offline flag support to blocks command (by zhiyue on 2025-06-20T12:55:13Z)
+  Full message: The --offline flag was not being passed to loadSessionBlockData() in the blocks command,
+  and loadSessionBlockData() was not passing it to PricingFetcher constructor.
+  
+  This fix ensures the blocks command respects the --offline flag like other commands do.
+  
+  Fixes #127
+  
+  🤖 Generated with [Claude Code](https://claude.ai/code)
+  
+  Co-Authored-By: Claude <noreply@anthropic.com>
+- chore: release v14.1.1 (by ryoppippi on 2025-06-20T13:24:29Z)
+- fix: use getClaudePaths for multi-directory support (by Nico Bailon on 2025-06-20T18:54:02Z)
+  Full message: - Remove claudePath parameter from data loading functions in all commands
+  - This allows the data loader to check multiple Claude directories automatically
+  - Supports both ~/.config/claude and ~/.claude paths
+  - Fixes 'No Claude usage data found' error when data exists in alternate locations
+- chore: release v14.1.2 (by ryoppippi on 2025-06-20T21:10:15Z)
+- Update README.md (by Durafen on 2025-06-22T16:55:12Z)
+  Full message: asdasdasd
+- Update README.md (by Durafen on 2025-06-22T16:56:21Z)
+  Full message: sadasd
+- Update README.md (by Durafen on 2025-06-22T17:00:27Z)
+  Full message: sadsadsad
+- Update README.md (by Durafen on 2025-06-22T17:03:18Z)
+  Full message: sadsadsadsa
+
+
+
+
+
+
+Please provide a concise summary up 2-5 bullet points highlighting the major changes and updates.
+Focus on the most important features, bug fixes, and improvements, what adds value to user.
+Don't repeat yourself, summarize, if you don't have anything new to add, don't add.
+Up to 15 words per bullet.
+Sort the bullets, so first will be the major changes and news.
+Don't include version numbers (unless it major version update).
+
+If branch analysis is included, highlight cross-branch development patterns and significant feature branches.
+
+IMPORTANT: This output will be displayed in a terminal, no markdown formatting.
+Do not add a title, headline - start directly with the bullet points. Do not include the 🤖 emoji or any other leading text.

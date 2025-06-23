@@ -1,0 +1,70 @@
+# Full AI Prompt for testing
+# Generated at: 2025-06-23T02:21:53.733337
+# Prompt type: summary
+# Prompt length: 3008 characters
+# ============================================================
+
+Summarize recent activity for testing repository:
+
+- Initial commit (by Durafen on 2025-06-21T21:19:27Z)
+- Update README.md (by Durafen on 2025-06-22T03:36:44Z)
+- Update README.md (by Durafen on 2025-06-22T03:38:09Z)
+  Full message: sadsadsasad
+- Update README.md (by Durafen on 2025-06-22T03:39:50Z)
+  Full message: sadsad
+- Update README.md (by Durafen on 2025-06-22T03:42:29Z)
+  Full message: dsadsadsad
+- Update README.md (by Durafen on 2025-06-22T03:43:28Z)
+- Update README.md (by Durafen on 2025-06-22T03:45:28Z)
+  Full message: sadsadsad
+- Update README.md (by Durafen on 2025-06-22T03:49:15Z)
+- Update README.md (by Durafen on 2025-06-22T03:49:45Z)
+- Update README.md (by Durafen on 2025-06-22T03:52:34Z)
+- Update README.md (by Durafen on 2025-06-22T03:53:07Z)
+  Full message: sadsad
+- Update README.md (by Durafen on 2025-06-22T03:53:48Z)
+- Update README.md (by Durafen on 2025-06-22T03:58:57Z)
+  Full message: sadsadsad
+- Update README.md (by Durafen on 2025-06-22T03:59:28Z)
+- Update README.md (by Durafen on 2025-06-22T04:01:20Z)
+- Update README.md (by Durafen on 2025-06-22T04:02:12Z)
+- Update README.md (by Durafen on 2025-06-22T04:03:12Z)
+  Full message: sadsadsad
+- Update README.md (by Durafen on 2025-06-22T04:03:53Z)
+- Update README.md (by Durafen on 2025-06-22T04:10:03Z)
+  Full message: sadsadsad
+- Update README.md (by Durafen on 2025-06-22T04:43:43Z)
+  Full message: sadsadsad
+- Update README.md (by Durafen on 2025-06-22T04:49:32Z)
+  Full message: sadsada
+- Update README.md (by Durafen on 2025-06-22T04:51:53Z)
+  Full message: sadsad
+- Update README.md (by Durafen on 2025-06-22T04:52:29Z)
+  Full message: sadsadsadsad
+- Update README.md (by Durafen on 2025-06-22T16:52:44Z)
+  Full message: asdsad
+- Update README.md (by Durafen on 2025-06-22T16:53:41Z)
+  Full message: sadsad
+- Test main branch commit - 1750633179 (by Durafen on 2025-06-22T22:59:40Z)
+- Test main branch commit - 1750633643 (by Durafen on 2025-06-22T23:07:24Z)
+- Test main branch commit - 1750634572 (by Durafen on 2025-06-22T23:22:53Z)
+- Test main branch commit - 1750635456 (by Durafen on 2025-06-22T23:37:37Z)
+- Test main branch commit - 1750635803 (by Durafen on 2025-06-22T23:43:24Z)
+- Test main branch commit - 1750636764 (by Durafen on 2025-06-22T23:59:25Z)
+
+
+
+
+
+
+Please provide a concise summary up 2-10 bullet points highlighting the major changes and updates.
+Focus on the most important features, bug fixes, and improvements, what adds value to user.
+Don't repeat yourself, summarize, if you don't have anything new to add, don't add.
+Up to 15 words per bullet.
+Sort the bullets, so first will be the major changes and news.
+Don't include version numbers (unless it major version update).
+
+If branch analysis is included, highlight cross-branch development patterns and significant feature branches.
+
+IMPORTANT: This output will be displayed in a terminal, no markdown formatting.
+Do not add a title, headline - start directly with the bullet points. Do not include the 🤖 emoji or any other leading text.
