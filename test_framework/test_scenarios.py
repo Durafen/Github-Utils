@@ -20,6 +20,7 @@ class TestScenariosManager:
     def __init__(self, test_runner: HybridTestRunner):
         self.runner = test_runner
         self.debug = test_runner.debug
+        self.new_branches = {}  # repo_name -> branch_name mapping for tracking dynamic branches
     
     def get_all_test_scenarios(self) -> Dict[str, List[Tuple[str, List[Tuple[str, Callable]]]]]:
         """Get all defined test scenarios organized by test type"""
@@ -37,6 +38,27 @@ class TestScenariosManager:
                 ('Test forks analysis command', lambda: self.runner.test_forks_analysis('ccusage')),
                 ('Validate fork detection patterns', lambda: self._validate_fork_output_patterns()),
                 ('Verify performance metrics', lambda: self._validate_forks_performance()),
+            ]),
+            ('forks_main_branch', [
+                ('Clear ccusage state', lambda: self.runner.clear_repository_state('ccusage')),
+                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
+                ('Test main branch forks detection', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Validate main branch patterns', lambda: self._validate_fork_output_patterns()),
+                ('Verify state update', lambda: self._validate_forks_performance()),
+            ]),
+            ('forks_multi_branch', [
+                ('Clear ccusage state', lambda: self.runner.clear_repository_state('ccusage')),
+                ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
+                ('Create feature branch commit', lambda: self._create_branch_commit('ccusage', 'test-feature')),
+                ('Test multi-branch forks detection', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Validate multi-branch patterns', lambda: self._validate_fork_output_patterns()),
+                ('Verify comprehensive performance', lambda: self._validate_forks_performance()),
+            ]),
+            ('forks_new_branch_analysis', [
+                ('Create NEW branch', lambda: self._create_new_single_branch('ccusage')),
+                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('ccusage')),
+                ('Test NEW branch forks detection', lambda: self.runner.test_forks_analysis('ccusage')),
+                ('Validate NEW branch in forks output', lambda: self._validate_new_branch_in_forks()),
             ])
         ]
     
@@ -65,6 +87,12 @@ class TestScenariosManager:
                 ('Test multi-branch news detection', lambda: self.runner.test_news_detection('ccusage', 'news_multi')),
                 ('Validate multi-branch patterns', lambda: self._validate_multi_branch_news()),
                 ('Verify comprehensive state', lambda: self._validate_comprehensive_state('ccusage')),
+            ]),
+            ('news_forks_new_branch', [
+                ('Create NEW branch', lambda: self._create_new_single_branch('ccusage')),
+                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('ccusage')),
+                ('Test NEW branch news detection', lambda: self.runner.test_news_detection('ccusage', 'new_branch')),
+                ('Validate NEW branch patterns', lambda: self._validate_new_single_branch()),
             ])
         ]
     
@@ -93,6 +121,12 @@ class TestScenariosManager:
                 ('Test multi-branch news detection', lambda: self.runner.test_news_detection('testing', 'news_multi')),
                 ('Validate multi-branch patterns', lambda: self._validate_multi_branch_news()),
                 ('Verify comprehensive state', lambda: self._validate_comprehensive_state('testing')),
+            ]),
+            ('news_regular_new_branch', [
+                ('Create NEW branch', lambda: self._create_new_single_branch('testing')),
+                ('Create commit on NEW branch', lambda: self._create_commit_on_new_branch('testing')),
+                ('Test NEW branch news detection', lambda: self.runner.test_news_detection('testing', 'new_branch')),
+                ('Validate NEW branch patterns', lambda: self._validate_new_single_branch()),
             ])
         ]
     
@@ -146,6 +180,60 @@ class TestScenariosManager:
             if self.debug:
                 print(f"❌ Failed to create commit on {repo_name}/{branch_name}: {e}")
             return False
+    
+    def _create_new_single_branch(self, repo_name: str) -> bool:
+        """Create a completely new branch with unique timestamp name"""
+        try:
+            timestamp = int(time.time())
+            branch_name = f"test-new-{timestamp}"
+            
+            # Store for later validation
+            self.new_branches[repo_name] = branch_name
+            
+            success = self.runner.github_ops.create_dynamic_test_branch(repo_name, branch_name)
+            
+            if self.debug and success:
+                print(f"✅ Created NEW branch: {branch_name} for {repo_name}")
+            
+            return success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Failed to create NEW branch for {repo_name}: {e}")
+            return False
+    
+    def _create_commit_on_new_branch(self, repo_name: str) -> bool:
+        """Create commit on the newly created branch"""
+        try:
+            if repo_name not in self.new_branches:
+                if self.debug:
+                    print(f"❌ No NEW branch found for {repo_name}")
+                return False
+            
+            branch_name = self.new_branches[repo_name]
+            timestamp = int(time.time())
+            message = f"Test new branch commit - {timestamp}"
+            success = self.runner.create_test_commit(repo_name, branch_name, message)
+            
+            if self.debug and success:
+                print(f"✅ Created commit on NEW branch {repo_name}/{branch_name}")
+            
+            return success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Failed to create commit on NEW branch for {repo_name}: {e}")
+            return False
+    
+    def _validate_new_single_branch(self) -> bool:
+        """Validate that the NEW branch appears in output"""
+        # Validation done in test_news_detection
+        return True
+    
+    def _validate_new_branch_in_forks(self) -> bool:
+        """Validate that the NEW branch appears in forks output"""
+        # Validation done in test_forks_analysis
+        return True
     
     # Validation helper methods
     

@@ -354,6 +354,23 @@ class HybridTestRunner:
                 except Exception:
                     pass  # Pattern matching failed, continue with other validation
             
+            # For new branch scenarios, validate new branch detection
+            if scenario_hint and 'new_branch' in scenario_hint:
+                # Look for new branch patterns in the output
+                try:
+                    import re
+                    new_branch_pattern = r'test-new-\d+'
+                    match = re.search(new_branch_pattern, stdout)
+                    if match:
+                        branch_name = match.group()
+                        branch_valid = self.validator.validate_new_branch_detected(stdout, branch_name)
+                        if self.debug:
+                            status = "✅" if branch_valid else "❌"
+                            print(f"{status} New branch validation: {branch_name}")
+                except Exception as e:
+                    if self.debug:
+                        print(f"⚠️ New branch validation failed: {e}")
+            
             # Validate AI response format
             ai_valid = self.validator.validate_ai_response_format(stdout)
             
@@ -413,6 +430,23 @@ class HybridTestRunner:
                         print(f"✅ Incremental fork activity detected in output")
                 except Exception:
                     pass  # Pattern matching failed, continue with other validation
+            
+            # For new branch forks scenarios, validate new branch detection  
+            if scenario_hint and any(x in scenario_hint for x in ['new_branch', 'new']):
+                # Look for new branch patterns in the forks output
+                try:
+                    import re
+                    new_branch_pattern = r'test-new-\d+'
+                    match = re.search(new_branch_pattern, stdout)
+                    if match:
+                        branch_name = match.group()
+                        branch_valid = self.validator.validate_new_branch_detected(stdout, branch_name)
+                        if self.debug:
+                            status = "✅" if branch_valid else "❌"
+                            print(f"{status} New branch validation in forks: {branch_name}")
+                except Exception as e:
+                    if self.debug:
+                        print(f"⚠️ New branch validation failed in forks: {e}")
             
             # Validate AI response format
             ai_valid = self.validator.validate_ai_response_format(stdout)

@@ -233,6 +233,45 @@ class GitHubOperations:
                 print(f"❌ Branch creation failed: {e}")
             return False
     
+    def create_dynamic_test_branch(self, repo_name: str, branch_name: str) -> bool:
+        """Create a new branch with specified unique name"""
+        if repo_name not in self.temp_dirs:
+            if self.debug:
+                print(f"❌ Repository {repo_name} not set up")
+            return False
+        
+        repo_dir = self.temp_dirs[repo_name]
+        
+        try:
+            # Checkout main and pull latest
+            self._run_command(['git', 'checkout', 'main'], cwd=repo_dir)
+            self._run_command(['git', 'pull', 'origin', 'main'], cwd=repo_dir)
+            
+            # Force delete branch if exists (local + remote)
+            self._run_command(['git', 'branch', '-D', branch_name], cwd=repo_dir)
+            self._run_command(['git', 'push', 'origin', '--delete', branch_name], cwd=repo_dir)
+            
+            # Create new branch
+            result = self._run_command(['git', 'checkout', '-b', branch_name], cwd=repo_dir)
+            if result.returncode != 0:
+                if self.debug:
+                    print(f"❌ Failed to create branch {branch_name}: {result.stderr}")
+                return False
+            
+            # Push to remote
+            push_result = self._run_command(['git', 'push', '-u', 'origin', branch_name], cwd=repo_dir)
+            
+            if self.debug:
+                status = "✅" if push_result.returncode == 0 else "❌"
+                print(f"{status} Created NEW branch: {branch_name} on {repo_name}")
+            
+            return push_result.returncode == 0
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ NEW branch creation failed: {e}")
+            return False
+    
     def get_test_commits_in_history(self, repo_name: str, branch: str = 'main', max_commits: int = 50) -> List[Dict]:
         """Find test commits in repository history using both GitHub API and local git log"""
         test_commits = []

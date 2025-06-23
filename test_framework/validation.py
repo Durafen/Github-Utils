@@ -450,6 +450,54 @@ class TestValidator:
                 print(f"❌ Section completeness validation error: {e}")
             return False
     
+    def validate_new_branch_detected(self, output: str, branch_name: str) -> bool:
+        """Validate specific new branch appears in output"""
+        try:
+            if not output or not branch_name:
+                if self.debug:
+                    print(f"❌ Empty output or branch name for new branch validation")
+                return False
+            
+            patterns = [
+                f"🌿 {branch_name}",  # Branch summary header
+                f"├─ {branch_name}:",  # Branch tree entry
+                f"└─ {branch_name}:",  # Branch tree entry (last)
+                f"⭐ {branch_name}",   # Branch star indicator
+                f"{branch_name} \\(\\+\\d+\\)",  # Branch with commit count
+            ]
+            
+            found_patterns = []
+            for pattern in patterns:
+                if re.search(pattern, output, re.IGNORECASE):
+                    found_patterns.append(pattern)
+            
+            # At least one pattern should match for new branch detection
+            success = len(found_patterns) > 0
+            
+            if self.debug:
+                status = "✅" if success else "❌"
+                print(f"{status} NEW branch detection: {branch_name} - {len(found_patterns)} pattern(s) found")
+                if found_patterns:
+                    print(f"   Found: {found_patterns}")
+                else:
+                    print(f"   Expected patterns: {patterns}")
+            
+            self.validation_results.append({
+                'type': 'new_branch_validation',
+                'success': success,
+                'branch_name': branch_name,
+                'found_patterns': found_patterns,
+                'expected_patterns': patterns,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return success
+            
+        except Exception as e:
+            if self.debug:
+                print(f"❌ NEW branch validation error: {e}")
+            return False
+    
     def get_validation_summary(self) -> Dict[str, Any]:
         """Get summary of all validation results"""
         total_validations = len(self.validation_results)

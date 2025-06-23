@@ -65,16 +65,23 @@ python3 test_framework/main_test.py --help
 
 ### Test Workflow
 
-Each test follows a **8-step validation cycle**:
+Each test follows a **10-step validation cycle**:
 
 0. 🧹 **Clear all repository states** → Reset tracking for all test repos
 1. 📰 **Run detection to clear news** → Clean slate for fresh run
 2. 🔨 **Create main branch commit** → Push real changes to GitHub
 3. 📰 **Run detection command** → Test main branch news detection
-4. 🌿 **Create feature branch commit** → Push to last non-main branch
+4. 🌿 **Create feature branch commit** → Push to non-main branch
 5. 📰 **Run detection command** → Test branch news detection
 6. 🔨🌿 **Create commits on both branches** → Test multi-branch scenario
 7. 📰 **Run detection command** → Validate comprehensive detection
+8. 🌟 **Create NEW branch + commit** → Test single new branch scenario
+9. 📰 **Run detection command** → Validate NEW branch detection
+
+**Enhanced NEW Branch Testing (Steps 8-9):**
+- Creates timestamp-based unique branch names (`test-new-1234567890`)
+- Tests dynamic branch discovery and analysis patterns
+- Validates new branch appears in news/forks output correctly
 
 ## Sample Output
 
@@ -280,7 +287,7 @@ The test framework uses a **git worktree + symlink setup** for cross-branch acce
 # Read any test framework file (works from main project directory)
 cat test_framework/main_test.py
 cat test_framework/settings.txt
-cat test_framework/README.md
+cat test_framework/CLAUDE.md
 
 # Edit test framework files (symlink provides live access)
 # Changes are immediately visible in both directories
