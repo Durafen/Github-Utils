@@ -116,7 +116,8 @@ class HybridTestRunner:
     
     def execute_gh_utils_command(self, command_args: List[str], 
                                 scenario_hint: Optional[str] = None, 
-                                timeout: int = 60) -> Tuple[bool, str, str, float]:
+                                timeout: int = 60,
+                                hide_execution_log: bool = False) -> Tuple[bool, str, str, float]:
         """Execute gh-utils command with AI mocking and validation"""
         try:
             start_time = time.time()
@@ -124,10 +125,19 @@ class HybridTestRunner:
             with self.ai_mocker.mock_ai_providers(scenario_hint):
                 print(f"🔧 Executing: python3 {self.gh_utils_script} {' '.join(command_args)}")
                 
-                result = subprocess.run([
-                    'python3', self.gh_utils_script
-                ] + command_args, 
-                timeout=timeout, cwd=self.project_root)
+                # Capture output if hiding execution log
+                if hide_execution_log:
+                    print("[Output hidden for first run of phase]")
+                    result = subprocess.run([
+                        'python3', self.gh_utils_script
+                    ] + command_args, 
+                    timeout=timeout, cwd=self.project_root, 
+                    capture_output=True, text=True)
+                else:
+                    result = subprocess.run([
+                        'python3', self.gh_utils_script
+                    ] + command_args, 
+                    timeout=timeout, cwd=self.project_root)
                 
                 execution_time = time.time() - start_time
                 success = result.returncode == 0
@@ -228,11 +238,11 @@ class HybridTestRunner:
                 print(f"❌ Failed to clear state for {repo_name}: {e}")
             return False
     
-    def test_news_detection(self, repo_name: str, scenario_hint: str = None) -> bool:
+    def test_news_detection(self, repo_name: str, scenario_hint: str = None, hide_execution_log: bool = False) -> bool:
         """Test news detection for a repository"""
         try:
             success, stdout, stderr, exec_time = self.execute_gh_utils_command(
-                ['news', repo_name], scenario_hint
+                ['news', repo_name], scenario_hint, hide_execution_log=hide_execution_log
             )
             
             if not success:
@@ -289,11 +299,11 @@ class HybridTestRunner:
                 print(f"❌ News detection test failed for {repo_name}: {e}")
             return False
     
-    def test_forks_analysis(self, repo_name: str, scenario_hint: str = 'forks_analysis') -> bool:
+    def test_forks_analysis(self, repo_name: str, scenario_hint: str = 'forks_analysis', hide_execution_log: bool = False) -> bool:
         """Test forks analysis for a repository"""
         try:
             success, stdout, stderr, exec_time = self.execute_gh_utils_command(
-                ['forks', repo_name], scenario_hint
+                ['forks', repo_name], scenario_hint, hide_execution_log=hide_execution_log
             )
             
             if not success:

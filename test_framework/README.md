@@ -75,7 +75,44 @@ Each test follows a **8-step validation cycle**:
 
 ## Sample Output
 
+The framework features **improved visual formatting** with cleaner phase separation and streamlined output:
+
 ```
+🚀 gh-utils Hybrid Testing Framework
+==================================================
+🔍 Validating test environment...
+✅ Environment validation passed
+
+
+
+
+🍴 TEST PHASE 1: FORKS ANALYSIS
+============================================================
+🔧 Executing: python3 .../gh-utils.py forks ccusage
+✅ Command completed in 53.54s
+🔧 Executing: python3 .../gh-utils.py forks ccusage
+[Fork analysis output displayed...]
+✅ Command completed in 43.40s
+
+
+
+
+📰 TEST PHASE 2: NEWS ABOUT FORKS
+============================================================
+🔧 Executing: python3 .../gh-utils.py news test-ccusage
+✅ Command completed in 16.98s
+🔧 Executing: python3 .../gh-utils.py news test-ccusage
+[News analysis output displayed...]
+✅ Command completed in 13.69s
+
+
+
+
+📰 TEST PHASE 3: NEWS ABOUT REGULAR REPOSITORY
+============================================================
+🔧 Executing: python3 .../gh-utils.py news testing
+✅ Command completed in 11.26s
+
 🧪 GH-UTILS HYBRID TESTING FRAMEWORK REPORT
 ================================================================================
 📅 Session: 2025-06-23T12:34:56.789123
@@ -189,13 +226,16 @@ The test framework uses a **git worktree + symlink setup** for cross-branch acce
 # Run tests from any branch in main project
 timeout 110 python3 test_framework/main_test.py --debug
 
-# Edit test framework (commits to test_framework branch)
+# Commit test framework changes from main project directory
+git -C ../github-utils-tests add test_framework/
+git -C ../github-utils-tests commit -m "test: improve validation and framework components"
+git -C ../github-utils-tests push origin test_framework
+
+# Alternative: Navigate to worktree directory
 cd ../github-utils-tests
 git add test_framework/ && git commit -m "test: improve validation"
 git push origin test_framework
-
-# Back to main development
-cd ../github-utils
+cd ../github-utils  # Back to main development
 ```
 
 **Benefits:**

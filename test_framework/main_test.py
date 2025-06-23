@@ -120,21 +120,21 @@ class MainTestOrchestrator:
         self.reporter.start_reporting_session()
         
         # Test Type 1: Forks Analysis
-        print("\n🍴 TEST PHASE 1: FORKS ANALYSIS")
+        print("\n\n\n\n🍴 TEST PHASE 1: FORKS ANALYSIS")
         print("=" * 60)
         
         forks_results = self._run_forks_analysis_tests()
         self.reporter.add_test_results('forks_analysis', forks_results)
         
         # Test Type 2: News about Forks (using test-ccusage alias)
-        print("\n📰 TEST PHASE 2: NEWS ABOUT FORKS")
+        print("\n\n\n\n📰 TEST PHASE 2: NEWS ABOUT FORKS")
         print("=" * 60)
         
         news_forks_results = self._run_news_about_forks_tests()
         self.reporter.add_test_results('news_about_forks', news_forks_results)
         
         # Test Type 3: News about Regular Repository
-        print("\n📰 TEST PHASE 3: NEWS ABOUT REGULAR REPOSITORY")
+        print("\n\n\n\n📰 TEST PHASE 3: NEWS ABOUT REGULAR REPOSITORY")
         print("=" * 60)
         
         news_regular_results = self._run_news_about_regular_tests()
@@ -164,7 +164,7 @@ class MainTestOrchestrator:
         scenarios = [
             ('forks_8step_analysis', [
                 ('Clear repository states', lambda: self._clear_all_repository_states()),
-                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline')),
+                ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ccusage', 'forks_baseline', hide_execution_log=True)),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ccusage', 'forks_main')),
                 ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
@@ -186,7 +186,7 @@ class MainTestOrchestrator:
         """Run news about forks test scenarios with 7-step validation cycle"""
         scenarios = [
             ('news_forks_7step_analysis', [
-                ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline')),
+                ('Run news baseline', lambda: self.runner.test_news_detection('test-ccusage', 'news_baseline', hide_execution_log=True)),
                 ('Create main branch commit', lambda: self._create_main_commit('ccusage')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('test-ccusage', 'news_main')),
                 ('Create branch commit', lambda: self._create_branch_commit_dynamic('ccusage')),
@@ -208,7 +208,7 @@ class MainTestOrchestrator:
         """Run news about regular repository test scenarios with 7-step validation cycle"""
         scenarios = [
             ('news_regular_7step_analysis', [
-                ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline')),
+                ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline', hide_execution_log=True)),
                 ('Create main branch commit', lambda: self._create_main_commit('testing')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('testing', 'news_main')),
                 ('Create branch commit', lambda: self._create_branch_commit_dynamic('testing')),
