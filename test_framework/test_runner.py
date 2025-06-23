@@ -306,6 +306,26 @@ class HybridTestRunner:
     def test_news_detection(self, repo_name: str, scenario_hint: str = None, hide_execution_log: bool = False) -> bool:
         """Test news detection for a repository"""
         try:
+            # STEP 1 CRITICAL CHECK: Validate repository access before ANY processing
+            if scenario_hint and 'baseline' in scenario_hint:
+                # Map repository names to expected URLs for validation
+                repo_url_mappings = {
+                    'ccusage': 'https://github.com/Durafen/ccusage',
+                    'test-ccusage': 'https://github.com/Durafen/ccusage', 
+                    'testing': 'https://github.com/Durafen/testing'
+                }
+                
+                expected_url = repo_url_mappings.get(repo_name)
+                if not expected_url:
+                    import sys
+                    sys.exit(1)
+                
+                # Critical repository validation - MUST pass or system exits
+                repo_access_valid = self.validator.validate_repository_access(repo_name, expected_url)
+                if not repo_access_valid:
+                    import sys
+                    sys.exit(1)
+            
             success, stdout, stderr, exec_time = self.execute_gh_utils_command(
                 ['news', repo_name], scenario_hint, hide_execution_log=hide_execution_log
             )

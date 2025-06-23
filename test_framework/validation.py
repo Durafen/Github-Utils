@@ -8,6 +8,8 @@ import json
 import os
 import re
 import time
+import subprocess
+import sys
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 
@@ -520,6 +522,162 @@ class TestValidator:
             'results': self.validation_results
         }
     
+    def validate_repository_access(self, repo_name: str, expected_url: str) -> bool:
+        """
+        CRITICAL VALIDATION: Ensure repository is configured and accessible.
+        This is a MAJOR ERROR check that should cause system exit if failed.
+        """
+        try:
+            if self.debug:
+                print(f"🔍 CRITICAL CHECK: Validating repository access for '{repo_name}'...")
+            
+            # Step 1: Check config.txt has the repository
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            config_path = os.path.join(project_root, "config.txt")
+            
+            if not os.path.exists(config_path):
+                if self.debug:
+                    print(f"🚨 MAJOR ERROR: config.txt not found at {config_path}")
+                    print("🛑 SYSTEM MUST EXIT - Repository configuration missing")
+                return False
+            
+            # Read config and check repository is listed
+            repo_found_in_config = False
+            with open(config_path, 'r') as f:
+                config_content = f.read()
+                
+            # Look for the repository in [repositories] section
+            lines = config_content.split('\n')
+            in_repositories_section = False
+            
+            for line in lines:
+                line = line.strip()
+                if line == '[repositories]':
+                    in_repositories_section = True
+                    continue
+                elif line.startswith('[') and line.endswith(']'):
+                    in_repositories_section = False
+                    continue
+                    
+                if in_repositories_section and '=' in line:
+                    config_name = line.split('=')[0].strip()
+                    config_url = line.split('=')[1].split('#')[0].strip()  # Remove comments
+                    
+                    if config_name == repo_name:
+                        repo_found_in_config = True
+                        if config_url.lower() != expected_url.lower():
+                            if self.debug:
+                                print(f"🚨 MAJOR ERROR: Repository URL mismatch!")
+                                print(f"   Expected: {expected_url}")
+                                print(f"   Found: {config_url}")
+                                print("🛑 SYSTEM MUST EXIT - Repository configuration inconsistent")
+                            return False
+                        break
+            
+            if not repo_found_in_config:
+                if self.debug:
+                    print(f"🚨 MAJOR ERROR: Repository '{repo_name}' not found in config.txt [repositories] section")
+                    print("🛑 SYSTEM MUST EXIT - Repository not configured")
+                return False
+            
+            # Step 2: Test GitHub API access
+            try:
+                # Extract owner/repo from URL
+                url_parts = expected_url.replace('https://github.com/', '').split('/')
+                if len(url_parts) < 2:
+                    if self.debug:
+                        print(f"🚨 MAJOR ERROR: Invalid GitHub URL format: {expected_url}")
+                        print("🛑 SYSTEM MUST EXIT - Repository URL invalid")
+                    return False
+                
+                owner, repo = url_parts[0], url_parts[1]
+                
+                # Test GitHub API access
+                gh_cmd = ['gh', 'api', f'repos/{owner}/{repo}', '--jq', '.full_name']
+                result = subprocess.run(gh_cmd, capture_output=True, text=True, timeout=30)
+                
+                if result.returncode != 0:
+                    if self.debug:
+                        print(f"🚨 MAJOR ERROR: GitHub API access failed for {owner}/{repo}")
+                        print(f"   Command: {' '.join(gh_cmd)}")
+                        print(f"   Error: {result.stderr}")
+                        print("🛑 SYSTEM MUST EXIT - Repository not accessible via GitHub API")
+                    return False
+                
+                full_name = result.stdout.strip()
+                expected_full_name = f"{owner}/{repo}"
+                
+                if full_name.lower() != expected_full_name.lower():
+                    if self.debug:
+                        print(f"🚨 MAJOR ERROR: Repository name mismatch!")
+                        print(f"   Expected: {expected_full_name}")
+                        print(f"   API returned: {full_name}")
+                        print("🛑 SYSTEM MUST EXIT - Repository identity inconsistent")
+                    return False
+                
+            except subprocess.TimeoutExpired:
+                if self.debug:
+                    print(f"🚨 MAJOR ERROR: GitHub API timeout accessing {expected_url}")
+                    print("🛑 SYSTEM MUST EXIT - Repository API access timed out")
+                return False
+            except Exception as e:
+                if self.debug:
+                    print(f"🚨 MAJOR ERROR: GitHub API access exception: {e}")
+                    print("🛑 SYSTEM MUST EXIT - Repository API access failed")
+                return False
+            
+            # Step 3: Test gh auth status
+            try:
+                auth_cmd = ['gh', 'auth', 'status']
+                auth_result = subprocess.run(auth_cmd, capture_output=True, text=True, timeout=10)
+                
+                if auth_result.returncode != 0:
+                    if self.debug:
+                        print(f"🚨 MAJOR ERROR: GitHub CLI not authenticated")
+                        print(f"   Command: {' '.join(auth_cmd)}")
+                        print(f"   Error: {auth_result.stderr}")
+                        print("🛑 SYSTEM MUST EXIT - GitHub CLI authentication required")
+                    return False
+                    
+            except Exception as e:
+                if self.debug:
+                    print(f"🚨 MAJOR ERROR: GitHub auth check failed: {e}")
+                    print("🛑 SYSTEM MUST EXIT - GitHub CLI authentication check failed")
+                return False
+            
+            # All checks passed
+            if self.debug:
+                print(f"✅ CRITICAL CHECK PASSED: Repository '{repo_name}' is properly configured and accessible")
+                print(f"   Config: Found in config.txt")
+                print(f"   API: Accessible via GitHub API")
+                print(f"   Auth: GitHub CLI authenticated")
+            
+            self.validation_results.append({
+                'type': 'repository_access_validation',
+                'repo_name': repo_name,
+                'expected_url': expected_url,
+                'success': True,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return True
+            
+        except Exception as e:
+            if self.debug:
+                print(f"🚨 MAJOR ERROR: Repository access validation exception: {e}")
+                print("🛑 SYSTEM MUST EXIT - Critical validation failed")
+            
+            self.validation_results.append({
+                'type': 'repository_access_validation',
+                'repo_name': repo_name,
+                'expected_url': expected_url,
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return False
+
     def reset_results(self):
         """Reset validation results"""
         self.validation_results.clear()
