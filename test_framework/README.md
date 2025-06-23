@@ -41,6 +41,9 @@ timeout 110 python3 test_framework/main_test.py
 # Run with debug output
 timeout 110 python3 test_framework/main_test.py --debug
 
+# Run with debug script and logging (recommended for debugging)
+test_framework/run_debug.sh
+
 # Run without saving JSON reports
 timeout 110 python3 test_framework/main_test.py --no-save-reports
 
@@ -192,7 +195,25 @@ python3 test_framework/main_test.py
 Enable debug mode for detailed output:
 ```bash
 python3 test_framework/main_test.py --debug
+
+# Or use the debug script with logging (creates test_framework.log)
+test_framework/run_debug.sh
 ```
+
+### Debug Script and Logging
+
+The `run_debug.sh` bash script provides enhanced debugging with automatic logging:
+
+**Script Features:**
+- **Auto-navigation**: Changes to project root from script directory
+- **Clean logging**: Removes old `test_framework.log` before each run
+- **Live output**: Shows test progress in terminal via `tee`
+- **Complete capture**: Saves all stdout/stderr to `test_framework.log`
+- **Unbuffered output**: Uses `python3 -u` for real-time display
+
+**Generated Files:**
+- **`test_framework.log`**: Complete test execution log with all debug output
+- **`success.md`**: Success tracking log created by test framework (when tests pass)
 
 Debug mode shows:
 - GitHub operations (clone, commit, push)
@@ -200,6 +221,8 @@ Debug mode shows:
 - Validation results
 - Performance metrics
 - Error details
+
+The `run_debug.sh` script automatically saves all output to `test_framework.log` for post-run analysis, while `success.md` tracks successful test completions.
 
 ## Development
 
