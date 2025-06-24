@@ -284,7 +284,7 @@ class MainTestOrchestrator:
         """Run forks analysis test scenarios with 10-step validation cycle"""
         scenarios = [
             ('forks_10step_analysis', [
-                ('Clear repository states', lambda: self._clear_all_repository_states()),
+                ('Clear target repository state', lambda: self._clear_target_repository('ant-javacard')),
                 ('Run forks analysis baseline', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
                 ('Test forks analysis after main commit', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_main')),
@@ -329,6 +329,7 @@ class MainTestOrchestrator:
         """Run news about forks test scenarios with 10-step validation cycle"""
         scenarios = [
             ('news_forks_10step_analysis', [
+                ('Clear target repository state', lambda: self._clear_target_repository('test-ant-javacard')),
                 ('Run news baseline', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('ant-javacard')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_main')),
@@ -373,6 +374,7 @@ class MainTestOrchestrator:
         """Run news about regular repository test scenarios with 10-step validation cycle"""
         scenarios = [
             ('news_regular_10step_analysis', [
+                ('Clear target repository state', lambda: self._clear_target_repository('testing')),
                 ('Run news baseline', lambda: self.runner.test_news_detection('testing', 'news_baseline', hide_execution_log=self.settings.get('hide_first_run_output', True))),
                 ('Create main branch commit', lambda: self._create_main_commit('testing')),
                 ('Test news after main commit', lambda: self.runner.test_news_detection('testing', 'news_main')),
@@ -431,6 +433,18 @@ class MainTestOrchestrator:
                 # Continue with other repos
         
         return success
+    
+    def _clear_target_repository(self, repo_name: str) -> bool:
+        """Clear repository state for specific target repository (smart clear)"""
+        try:
+            repo_success = self.runner.clear_repository_state(repo_name)
+            if self.debug:
+                status = "✅" if repo_success else "⚠️"
+                print(f"{status} Cleared state for {repo_name}")
+            return repo_success
+        except Exception as e:
+            print(f"⚠️ Failed to clear state for {repo_name}: {e}")
+            return False
     
     def _create_main_commit(self, repo_name: str) -> bool:
         timestamp = int(time.time())
