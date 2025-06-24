@@ -80,3 +80,11 @@ max_branches_per_fork = 5
 
 # Always analyze default branch even if not ahead by min threshold
 analyze_default_branch_always = true
+
+# Parallel processing settings
+# ----------------------------
+# Number of parallel workers (max 4 recommended)
+max_workers = 4
+
+# Timeout per repository in seconds
+repo_timeout = 60

@@ -1,4 +1,4 @@
-from .base_processor import BaseProcessor
+from .parallel_base_processor import ParallelBaseProcessor
 from .repository_mixin import RepositoryProcessorMixin
 from .debug_logger import DebugLogger
 from .cost_tracker import CostTracker
@@ -6,7 +6,7 @@ from .commit_utils import filter_commits_since_last_processed
 from .state_manager import StateManager
 from datetime import datetime
 
-class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
+class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
     """Processor for fork analysis (forks ahead of parent)"""
     
     def __init__(self, repositories=None):
@@ -44,12 +44,12 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             
             # Get parent repository README once at start
             if self.config_manager.get_boolean_setting('debug'):
-                self.display.display_loading(f"Fetching parent README for {repo['name']}...")
+                self._safe_display_loading(f"Fetching parent README for {repo['name']}...")
             parent_readme = self.fetcher.get_readme(owner, repo_name)
             
             # Get forks for this repository
             if self.config_manager.get_boolean_setting('debug'):
-                self.display.display_loading(f"Checking forks for {repo['name']}...")
+                self._safe_display_loading(f"Checking forks for {repo['name']}...")
             forks = self.fetcher.get_forks(owner, repo_name, limit=max_forks)
             
             # Debug output
@@ -58,9 +58,9 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             
             if not forks:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self.display.display_no_active_forks(repo['name'])
+                    self._safe_display_no_active_forks(repo['name'])
                 # Display summary even when no forks found
-                self.display.display_forks_summary(
+                self._safe_display_forks_summary(
                     repo['name'],
                     0,  # active_count
                     0,  # total_count
@@ -88,9 +88,9 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             
             if not forks_to_process:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self.display.display_no_fork_changes(repo['name'])
+                    self._safe_display_no_fork_changes(repo['name'])
                 # Display summary even when no forks need processing
-                self.display.display_forks_summary(
+                self._safe_display_forks_summary(
                     repo['name'], 0, len(current_forks), 
                     self.cost_tracker.get_total_cost_info(),
                     self.config_manager.get_show_costs_setting(),
@@ -104,10 +104,10 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
             # Show message if no forks found after processing all
             if not ahead_forks:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self.display.display_no_active_forks(repo['name'])
+                    self._safe_display_no_active_forks(repo['name'])
             
             # Display repository-level fork summary
-            self.display.display_forks_summary(
+            self._safe_display_forks_summary(
                 repo['name'],
                 len(ahead_forks),
                 len(current_forks),
@@ -118,7 +118,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
                 
         except Exception as e:
             if "404" in str(e):
-                self.display.display_error(f"Repository {repo['name']} not found or not accessible")
+                self._safe_display_error(f"Repository {repo['name']} not found or not accessible")
             else:
                 raise
     
@@ -169,13 +169,13 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
         
         # Get all branches for this fork
         if self.config_manager.get_boolean_setting('debug'):
-            self.display.display_loading(f"Analyzing branches for {fork_owner}/{fork_name}...")
+            self._safe_display_loading(f"Analyzing branches for {fork_owner}/{fork_name}...")
             
         fork_branches = self.fetcher.get_fork_branches(fork_owner, fork_name)
         
         if not fork_branches:
             if self.config_manager.get_boolean_setting('debug'):
-                self.display.display_loading(f"No branches found for {fork_owner}/{fork_name}")
+                self._safe_display_loading(f"No branches found for {fork_owner}/{fork_name}")
             return None
         
         # Debug output
@@ -257,19 +257,19 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
                 # Get latest commit timestamp for this specific branch
                 try:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self.display.display_loading(f"Fetching timestamp for {fork_owner}/{fork_name}:{branch_name}")
+                        self._safe_display_loading(f"Fetching timestamp for {fork_owner}/{fork_name}:{branch_name}")
                     branch_timestamp = self.fetcher.get_latest_commit_timestamp(fork_owner, fork_name, branch_name)
                     if self.config_manager.get_boolean_setting('debug'):
-                        self.display.display_loading(f"Got timestamp: {branch_timestamp}")
+                        self._safe_display_loading(f"Got timestamp: {branch_timestamp}")
                 except Exception as e:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self.display.display_loading(f"Timestamp fetch failed for {fork_owner}/{fork_name}:{branch_name} - {e}")
+                        self._safe_display_loading(f"Timestamp fetch failed for {fork_owner}/{fork_name}:{branch_name} - {e}")
                     branch_timestamp = None
                 
                 # Check README modifications for this branch
                 if self.fetcher.readme_was_modified(comparison) and fork_readme is None:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self.display.display_loading(f"README modified in {branch_name}, fetching...")
+                        self._safe_display_loading(f"README modified in {branch_name}, fetching...")
                     fork_readme = self.fetcher.get_readme(fork_owner, fork_name)
                 
                 # Use filtered commit count for accurate AI context
@@ -329,7 +329,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
         fork_name_full = f"{fork_owner}/{fork_name}"
         if not self._should_process_fork_multi_branch(repo_key, fork_name_full, branch_analyses):
             if self.config_manager.get_boolean_setting('debug'):
-                self.display.display_loading(f"Skipping {fork_name_full} - no new commits across branches")
+                self._safe_display_debug(f"Skipping {fork_name_full} - no new commits across branches")
             return None
         
         # Sort all commits by most recent for AI context
@@ -417,7 +417,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
                 
                 # Display header only once when first fork is found
                 if not header_displayed:
-                    self.display.display_forks_header(repo['name'], repo.get('url'))
+                    self._safe_display_forks_header(repo['name'], repo.get('url'))
                     header_displayed = True
                 
                 # Process fork immediately for AI summary
@@ -450,7 +450,7 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
                         self.cost_tracker.add_cost(result['cost_info'])
                     
                     # Display fork analysis
-                    self.display.display_fork_summary(
+                    self._safe_display_fork_summary(
                         repo['name'], 
                         fork_info['fork_name'],
                         f"https://github.com/{fork_info['fork_name']}",
@@ -465,10 +465,10 @@ class ForksProcessor(BaseProcessor, RepositoryProcessorMixin):
                     
                 except Exception as e:
                     # Always log critical errors, not just in debug mode
-                    self.display.display_error(f"❌ Summary generation failed for {fork_info['fork_name']}: {e}")
+                    self._safe_display_error(f"❌ Summary generation failed for {fork_info['fork_name']}: {e}")
                     if self.config_manager.get_boolean_setting('debug'):
                         import traceback
-                        self.display.display_error(f"Full traceback: {traceback.format_exc()}")
+                        self._safe_display_error(f"Full traceback: {traceback.format_exc()}")
         
         return ahead_forks
     
