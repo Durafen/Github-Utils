@@ -51,6 +51,36 @@ timeout 110 python3 test_framework/main_test.py --no-save-reports
 python3 test_framework/main_test.py --help
 ```
 
+### Manual Phase Testing (NEW)
+
+```bash
+# Run individual test phases using --phase option
+python3 test_framework/main_test.py --phase forks --debug
+python3 test_framework/main_test.py --phase news-forks
+python3 test_framework/main_test.py --phase news-regular --no-save-reports
+
+# Alternative shorthand phase options
+python3 test_framework/main_test.py --forks --debug
+python3 test_framework/main_test.py --news-forks
+python3 test_framework/main_test.py --news-regular
+
+# Phase testing with timeout for comprehensive testing
+timeout 110 python3 test_framework/main_test.py --phase forks
+timeout 110 python3 test_framework/main_test.py --phase news-forks
+timeout 110 python3 test_framework/main_test.py --phase news-regular
+```
+
+**Available Phases:**
+- **`forks`**: Tests fork analysis functionality (`./gh-utils.py forks ant-javacard`)
+- **`news-forks`**: Tests news detection on fork repository (`./gh-utils.py news test-ant-javacard`) 
+- **`news-regular`**: Tests news detection on regular repository (`./gh-utils.py news testing`)
+
+**Phase Testing Benefits:**
+- ⚡ **Faster Development**: Test specific functionality without running all 3 phases
+- 🎯 **Targeted Debugging**: Focus on problematic phase without full suite overhead
+- 🧪 **Independent Validation**: Each phase runs complete 10-step validation cycle
+- 📊 **Individual Reports**: Get phase-specific success rates and performance metrics
+
 ## Architecture
 
 ### Framework Components

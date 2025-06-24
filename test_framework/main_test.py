@@ -230,6 +230,56 @@ class MainTestOrchestrator:
         
         return overall_success_rate >= 0.8  # 80% success rate threshold
     
+    def run_single_phase(self, phase: str) -> bool:
+        """Run a single test phase"""
+        if self.debug:
+            print(f"\n🎯 Running single phase: {phase}")
+        
+        # Start reporting session
+        self.reporter.start_reporting_session()
+        
+        # Run the selected phase
+        if phase == 'forks':
+            print("\n\n🍴 SINGLE PHASE: FORKS ANALYSIS")
+            print("=" * 60)
+            results = self._run_forks_analysis_tests()
+            self.reporter.add_test_results('forks_analysis', results)
+            
+        elif phase == 'news-forks':
+            print("\n\n📰 SINGLE PHASE: NEWS ABOUT FORKS")
+            print("=" * 60)
+            results = self._run_news_about_forks_tests()
+            self.reporter.add_test_results('news_about_forks', results)
+            
+        elif phase == 'news-regular':
+            print("\n\n📰 SINGLE PHASE: NEWS ABOUT REGULAR REPOSITORY")
+            print("=" * 60)
+            results = self._run_news_about_regular_tests()
+            self.reporter.add_test_results('news_about_regular', results)
+            
+        else:
+            print(f"❌ Unknown phase: {phase}")
+            return False
+        
+        # Finalize reporting
+        self.reporter.finalize_session()
+        
+        # Generate and display report
+        console_report = self.reporter.generate_console_report()
+        print("\n" + console_report)
+        
+        # Save JSON report if requested
+        if self.save_reports:
+            json_file = self.reporter.save_json_report()
+            if json_file and self.debug:
+                print(f"\n💾 Detailed report saved to: {json_file}")
+        
+        # Determine success
+        summary = self.reporter.report_data.get('summary', {})
+        overall_success_rate = summary.get('overall', {}).get('scenarios', {}).get('success_rate', 0)
+        
+        return overall_success_rate >= 0.8  # 80% success rate threshold
+    
     def _run_forks_analysis_tests(self) -> list:
         """Run forks analysis test scenarios with 10-step validation cycle"""
         scenarios = [
@@ -510,6 +560,12 @@ Test Types:
 Examples:
   python3 test_framework/main_test.py --debug
   python3 test_framework/main_test.py --no-save-reports
+  python3 test_framework/main_test.py --phase forks
+  python3 test_framework/main_test.py --phase news-forks --debug
+  python3 test_framework/main_test.py --phase news-regular
+  python3 test_framework/main_test.py --forks --debug
+  python3 test_framework/main_test.py --news-forks
+  python3 test_framework/main_test.py --news-regular --no-save-reports
         """
     )
     
@@ -517,6 +573,17 @@ Examples:
                        help='Enable debug output')
     parser.add_argument('--no-save-reports', action='store_true',
                        help='Skip saving JSON reports')
+    
+    # Phase selection arguments
+    phase_group = parser.add_mutually_exclusive_group()
+    phase_group.add_argument('--phase', choices=['forks', 'news-forks', 'news-regular'],
+                            help='Run only a specific test phase')
+    phase_group.add_argument('--forks', action='store_true',
+                            help='Run only forks analysis phase')
+    phase_group.add_argument('--news-forks', action='store_true', 
+                            help='Run only news about forks phase')
+    phase_group.add_argument('--news-regular', action='store_true',
+                            help='Run only news about regular repository phase')
     
     args = parser.parse_args()
     
@@ -544,8 +611,22 @@ Examples:
             print("❌ Test repository setup failed")
             return 1
         
-        # Run complete test suite
-        success = orchestrator.run_complete_test_suite()
+        # Determine which phase(s) to run
+        phase_to_run = None
+        if args.phase:
+            phase_to_run = args.phase
+        elif args.forks:
+            phase_to_run = 'forks'
+        elif args.news_forks:
+            phase_to_run = 'news-forks'
+        elif args.news_regular:
+            phase_to_run = 'news-regular'
+        
+        # Run selected phase(s)
+        if phase_to_run:
+            success = orchestrator.run_single_phase(phase_to_run)
+        else:
+            success = orchestrator.run_complete_test_suite()
         
         # Cleanup
         orchestrator.cleanup()
