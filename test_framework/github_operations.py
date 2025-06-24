@@ -472,12 +472,13 @@ class GitHubOperations:
                 return True
             
             # Perform the actual deletion
-            print(f"🗑️  Deleting {len(test_commits_to_delete)} test commits from {repo_name}/{branch}")
+            if self.debug:
+                print(f"🗑️  Deleting {len(test_commits_to_delete)} test commits from {repo_name}/{branch}")
             
             # First, explicitly remove any test files
             import glob
             test_files = glob.glob(os.path.join(repo_dir, 'test_*.txt'))
-            if test_files:
+            if test_files and self.debug:
                 print(f"🗑️  Removing {len(test_files)} test files: {[os.path.basename(f) for f in test_files]}")
                 for test_file in test_files:
                     try:
@@ -603,6 +604,10 @@ class GitHubOperations:
                     print(f"🎉 All test repositories cleaned successfully!")
                 else:
                     print(f"⚠️  Some repositories had cleanup failures")
+            else:
+                # Non-debug mode: show simple one-liner
+                if not dry_run:
+                    print("🗑️ Cleaning commits, branches, files")
             
             return overall_success
             
@@ -665,6 +670,8 @@ class GitHubOperations:
             if clean_branches:
                 if self.debug:
                     print("🧹 Cleaning up test branches from repositories...")
+                else:
+                    print("🗑️ Cleaning commits, branches, files")
                 for repo_name in self.temp_dirs.keys():
                     branch_success = self._cleanup_test_branches(repo_name)
                     if not branch_success:
@@ -752,8 +759,6 @@ class GitHubOperations:
                     if delete_result.returncode == 0:
                         if self.debug:
                             print(f"✅ Deleted remote branch {branch} from {repo_name}")
-                        else:
-                            print(f"🗑️ Deleted branch: {repo_path}/{branch}")
                     else:
                         overall_success = False
                         if self.debug:
