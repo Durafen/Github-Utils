@@ -16,13 +16,6 @@ class DebugLogger:
         if self._is_debug_enabled():
             print(f"DEBUG: {message}")
     
-    def debug_api_call(self, endpoint, params=None):
-        """Debug API call information"""
-        if self._is_debug_enabled():
-            if params:
-                print(f"DEBUG: API call to {endpoint} with params: {params}")
-            else:
-                print(f"DEBUG: API call to {endpoint}")
     
     def debug_tokens(self, tokens_used, estimated_cost=None):
         """Debug token usage information"""

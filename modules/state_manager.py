@@ -195,3 +195,58 @@ class StateManager:
         saved_latest = branch_states[branch_name].get('last_commit')
         
         return current_latest != saved_latest  # Has new commits
+
+    @staticmethod
+    def needs_repository_processing(state, repo_key, current_main_sha, current_branch_shas):
+        """
+        Determine if repository needs any processing based on state comparison
+        
+        Args:
+            state: The state dictionary to check
+            repo_key: Repository key (owner/repo format)  
+            current_main_sha: Current main branch SHA
+            current_branch_shas: Dictionary of branch_name -> sha
+            
+        Returns:
+            tuple: (needs_processing: bool, new_branches: list, changed_branches: list)
+        """
+        repo_state = state.get(repo_key, {})
+        
+        # Check main branch first
+        saved_main_sha = repo_state.get('last_commit')
+        main_changed = saved_main_sha != current_main_sha
+        
+        # Check branches
+        saved_branches = repo_state.get('branches', {})
+        new_branches = []
+        changed_branches = []
+        
+        # Find new and changed branches
+        for branch_name, current_sha in current_branch_shas.items():
+            if branch_name not in saved_branches:
+                new_branches.append(branch_name)
+            else:
+                saved_sha = saved_branches[branch_name].get('last_commit')
+                if saved_sha != current_sha:
+                    changed_branches.append(branch_name)
+        
+        needs_processing = main_changed or new_branches or changed_branches
+        return needs_processing, new_branches, changed_branches
+
+    @staticmethod
+    def main_branch_unchanged(state, repo_key, current_main_sha):
+        """
+        Quick check if main branch is unchanged
+        
+        Args:
+            state: The state dictionary to check
+            repo_key: Repository key (owner/repo format)
+            current_main_sha: Current main branch SHA
+            
+        Returns:
+            bool: True if main branch hasn't changed
+        """
+        repo_state = state.get(repo_key, {})
+        saved_main_sha = repo_state.get('last_commit')
+        return saved_main_sha == current_main_sha
+

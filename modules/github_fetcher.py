@@ -5,20 +5,43 @@ import os
 
 
 class GitHubFetcher:
-    def __init__(self):
+    def __init__(self, debug_logger=None):
         """GitHub CLI fetcher - uses gh command for API access"""
+        self.debug_logger = debug_logger
         self._setup_token_cache()
         self._check_gh_auth()
     
     def _setup_token_cache(self):
-        """Cache GH_TOKEN once to eliminate auth overhead"""
+        """Enhanced token caching with validation and proper error handling"""
         try:
             result = subprocess.run(['gh', 'auth', 'token'], 
-                                   capture_output=True, text=True)
+                                   capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
-                os.environ['GH_TOKEN'] = result.stdout.strip()
-        except:
-            pass  # Fallback to normal auth
+                token = result.stdout.strip()
+                if token and self._validate_token(token):
+                    os.environ['GH_TOKEN'] = token
+                    if self.debug_logger:
+                        self.debug_logger.debug("✅ Token caching successful")
+                else:
+                    if self.debug_logger:
+                        self.debug_logger.debug("⚠️  Token validation failed - using normal auth")
+            else:
+                if self.debug_logger:
+                    self.debug_logger.debug(f"⚠️  gh auth token failed: {result.stderr}")
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as e:
+            if self.debug_logger:
+                self.debug_logger.debug(f"⚠️  Token caching failed: {e}")
+            # Fallback to normal auth without caching
+    
+    def _validate_token(self, token):
+        """Validate token works with a lightweight API call"""
+        try:
+            # Quick validation - check if token allows basic API access
+            result = subprocess.run(['gh', 'api', 'user'], 
+                                   capture_output=True, text=True, timeout=5)
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError):
+            return False
     
     def _check_gh_auth(self):
         """Verify gh CLI is authenticated"""
@@ -131,21 +154,6 @@ class GitHubFetcher:
         
         return self._run_gh_command_multiline_json(cmd)
 
-    def compare_fork_with_parent(self, parent_owner, parent_repo, fork_owner, fork_repo, fork_branch='main'):
-        """Compare fork with parent repository using gh CLI"""
-        cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_repo}/compare/{fork_branch}...{fork_owner}:{fork_repo}:{fork_branch}',
-               '--jq', '{ahead_by, behind_by, status, commits: [.commits[] | {sha: .sha[0:7], message: .commit.message, author: .commit.author}], files: [.files[] | .filename]}']
-        
-        try:
-            return self._run_gh_command(cmd)
-        except RuntimeError:
-            # Fork comparison can fail for various reasons (branch mismatch, private repos, etc.)
-            # Return empty result rather than failing completely
-            return {'ahead_by': 0, 'behind_by': 0, 'status': 'error', 'commits': [], 'files': []}
-
-    def get_fork_commits(self, fork_owner, fork_repo, limit=10, branch=None):
-        """Get commit details for fork (reuses existing get_commits pattern)"""
-        return self.get_commits(fork_owner, fork_repo, limit=limit, branch=branch)
     
     def get_readme(self, owner, repo):
         """Get README content for repository using gh CLI"""
@@ -267,16 +275,6 @@ class GitHubFetcher:
             # Branch comparison can fail for various reasons
             return {'ahead_by': 0, 'behind_by': 0, 'status': 'error', 'commits': [], 'files': []}
     
-    def filter_active_branches(self, branches, activity_days=30):
-        """Filter branches by recent activity (based on commit date)"""
-        from datetime import datetime, timedelta
-        
-        if not branches:
-            return []
-        
-        # For now, return all branches since we don't have commit date in branch list
-        # In a more advanced implementation, we'd fetch commit details for each branch
-        return branches
     
     def get_default_branch(self, owner, repo):
         """Get the default branch for a repository"""
@@ -332,13 +330,53 @@ class GitHubFetcher:
         """Adaptive branch comparison: cross-repo for forks, same-repo for non-forks"""
         is_fork, parent_owner, parent_name = self.get_fork_info(owner, repo)
         
-        if is_fork:
-            # Cross-repository comparison for forks (like forks module)
-            cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
-                   '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+        try:
+            if is_fork:
+                # Cross-repository comparison for forks (like forks module)
+                cmd = ['gh', 'api', f'repos/{parent_owner}/{parent_name}/compare/{base_branch}...{owner}:{repo}:{compare_branch}',
+                       '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+            else:
+                # Same-repository comparison for non-forks
+                cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
+                       '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+            
+            return self._run_gh_command(cmd)
+        except RuntimeError as e:
+            # Handle orphan branches (no common ancestor) - treat as independent branches
+            if "No common ancestor" in str(e):
+                return {'ahead_by': -1, 'behind_by': 0, 'is_orphan': True}
+            # Other errors - treat as no difference
+            return {'ahead_by': 0, 'behind_by': 0}
+
+    def get_branch_shas_only(self, owner, repo, limit=None):
+        """Get lightweight branch list with only names and SHAs for performance optimization"""
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches']
+        if limit:
+            cmd.extend(['--jq', f'.[:{limit}] | .[] | {{name, commit: {{sha}}}}'])
         else:
-            # Same-repository comparison for non-forks
-            cmd = ['gh', 'api', f'repos/{owner}/{repo}/compare/{base_branch}...{compare_branch}',
-                   '--jq', '{ahead_by: .ahead_by, behind_by: .behind_by}']
+            cmd.extend(['--jq', '.[] | {name, commit: {sha}}'])
         
-        return self._run_gh_command(cmd)
+        return self._run_gh_command_multiline_json(cmd)
+
+    def get_fork_last_commits(self, owner, repo, limit=None):
+        """Get fork list with their default branch SHAs only for performance optimization"""
+        per_page = limit or 20
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/forks?per_page={per_page}']
+        if limit:
+            cmd.extend(['--jq', f'.[:{limit}] | .[] | {{owner: .owner.login, name, full_name, default_branch, updated_at, private}}'])
+        else:
+            cmd.extend(['--jq', '.[] | {owner: .owner.login, name, full_name, default_branch, updated_at, private}'])
+        
+        return self._run_gh_command_multiline_json(cmd)
+
+
+    def get_current_main_sha(self, owner, repo):
+        """Get current main/default branch SHA (lightweight check)"""
+        default_branch = self.get_default_branch(owner, repo)
+        cmd = ['gh', 'api', f'repos/{owner}/{repo}/branches/{default_branch}', '--jq', '.commit.sha']
+        try:
+            result = self._run_gh_command(cmd, parse_json=False)
+            return result.strip().replace('"', '')
+        except RuntimeError:
+            return None
+

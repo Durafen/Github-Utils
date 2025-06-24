@@ -23,6 +23,31 @@ class ClaudeCLIProvider(AIProvider):
     
     def generate_summary(self, prompt: str) -> dict:
         """Generate summary using Claude CLI"""
+        # Check if we're in test mode first
+        try:
+            import os
+            import sys
+            test_mode = os.environ.get('GH_UTILS_TEST_MODE')
+            print(f"🤖 ClaudeCLI: TEST_MODE={test_mode}")
+            if test_mode == '1':
+                # Import from test framework
+                test_framework_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_framework')
+                print(f"🤖 ClaudeCLI: test_framework_path={test_framework_path}")
+                print(f"🤖 ClaudeCLI: path_exists={os.path.exists(test_framework_path)}")
+                if os.path.exists(test_framework_path) and test_framework_path not in sys.path:
+                    sys.path.append(test_framework_path)
+                from ai_mocking import AIMockingManager
+                mock_result = AIMockingManager.get_test_mode_response(prompt)
+                print(f"🤖 ClaudeCLI: mock_result={bool(mock_result)}")
+                if mock_result:
+                    print(f"🤖 ClaudeCLI: Returning mock response")
+                    return mock_result
+        except Exception as e:
+            print(f"🤖 ClaudeCLI: Exception in test mode: {e}")
+            # If anything fails with test mode, continue with normal operation
+            pass
+        
+        print(f"🤖 ClaudeCLI: Making real AI call (test mode not detected)")
         summary = self._call_claude(prompt)
         
         # Estimate cost for Claude CLI (rough estimation)
@@ -168,6 +193,23 @@ class OpenAIProvider(AIProvider):
     
     def generate_summary(self, prompt: str) -> dict:
         """Generate summary using OpenAI API"""
+        # Check if we're in test mode first
+        try:
+            import os
+            import sys
+            if os.environ.get('GH_UTILS_TEST_MODE') == '1':
+                # Import from test framework
+                test_framework_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_framework')
+                if os.path.exists(test_framework_path) and test_framework_path not in sys.path:
+                    sys.path.append(test_framework_path)
+                from ai_mocking import AIMockingManager
+                mock_result = AIMockingManager.get_test_mode_response(prompt)
+                if mock_result:
+                    return mock_result
+        except Exception:
+            # If anything fails with test mode, continue with normal operation
+            pass
+        
         try:
             import openai
             

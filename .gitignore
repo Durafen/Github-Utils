@@ -60,4 +60,15 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
+MANIFESTdebug_prompts/
+# State files
+*.json
+
+# Claude IDE settings
+.claude/
+
+# Test logs and reports
+test_framework.log
+test_reports/
+/debug_prompts/
+test_framework
