@@ -88,3 +88,6 @@ max_workers = 4
 
 # Timeout per repository in seconds
 repo_timeout = 60
+
+# Global timeout for all repositories in seconds (10 minutes default)
+global_timeout = 600

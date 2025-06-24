@@ -60,6 +60,7 @@ class ParallelBaseProcessor(ABC):
         
         max_workers = min(len(self.repos), self.config_manager.get_int_setting('max_workers', 4))
         repo_timeout = self.config_manager.get_int_setting('repo_timeout', 60)
+        global_timeout = self.config_manager.get_int_setting('global_timeout', 600)  # 10 minutes default
         
         # Start display thread for ordered output
         from queue import Queue
@@ -76,7 +77,7 @@ class ParallelBaseProcessor(ABC):
             }
             
             # Wait for completion with timeout
-            for future in concurrent.futures.as_completed(future_to_repo, timeout=180):
+            for future in concurrent.futures.as_completed(future_to_repo, timeout=global_timeout):
                 repo = future_to_repo[future]
                 try:
                     future.result(timeout=repo_timeout)
