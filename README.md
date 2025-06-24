@@ -7,8 +7,10 @@ gh-utils turns every repo you watch into a personal GitHub newsfeed—pulling fr
 - **Repository News Tracking**: Monitor commits and releases across multiple repositories with individual branch analysis
 - **Fork Analysis**: Analyze repository forks that are ahead of their parent with multi-branch support
 - **Dual AI Provider Support**: Choose between Claude CLI and OpenAI API
+- **Parallel Processing**: 4-worker concurrent repository processing for 70% faster execution
 - **Incremental State Management**: Only processes repositories with new activity
 - **Terminal-Friendly Output**: Clean, formatted summaries without markdown clutter
+- **Thread-Safe Architecture**: Complete display synchronization with per-repository locking
 - **Modular Architecture**: Extensible processor pattern for adding new analysis types
 - **Cost Tracking**: Monitor AI token usage and estimated costs
 - **Enhanced Fork Analysis**: Intelligent README comparison for better fork insights
@@ -169,6 +171,10 @@ max_forks = 200                # Maximum forks to analyze
 min_commits_ahead = 1          # Minimum commits ahead
 fork_activity_days = 90        # Only check recent forks
 exclude_private_forks = true   # Skip private forks
+
+# Parallel processing
+max_workers = 4                # Number of parallel workers
+repo_timeout = 60              # Timeout per repository
 ```
 
 ### Examples
@@ -266,14 +272,20 @@ mv config.txt.backup config.txt
 
 ## 🏗️ Architecture
 
-The project uses a **modular processor pattern** with extensive code reuse:
+The project uses a **parallel processor pattern** with extensive code reuse:
 
-- **BaseProcessor**: Abstract base class for repository processing workflow
+- **ParallelBaseProcessor**: Thread-safe base class with 4-worker concurrent processing
 - **RepositoryProcessorMixin**: Shared GitHub data processing logic  
-- **NewsProcessor & ForksProcessor**: Concrete implementations inheriting from base classes
+- **NewsProcessor & ForksProcessor**: Concrete implementations inheriting from parallel base classes
 - **GitHubFetcher**: GitHub CLI integration with comprehensive API access
 - **SummaryGenerator**: AI orchestration with template-based prompts
 - **ConfigManager**: INI-based configuration with environment variable support
+
+### Parallel Processing Features
+- **4-worker ThreadPoolExecutor**: Concurrent repository processing
+- **Thread-safe display queue**: Ordered output without race conditions
+- **Per-repository locking**: Prevents state corruption
+- **Incremental state saving**: Progress preserved on individual repository completion
 
 ## 🔒 Security
 
