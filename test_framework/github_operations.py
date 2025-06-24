@@ -132,9 +132,12 @@ class GitHubOperations:
         except Exception as e:
             print(f"⚠️ Git auth setup failed: {e}")
     
-    def create_test_commit(self, repo_name: str, branch: str = 'main', 
+    def create_test_commit(self, repo_name: str, branch: Optional[str] = None, 
                           message: Optional[str] = None) -> bool:
         """Create and push a test commit to specified branch"""
+        import sys
+        import os
+        
         if repo_name not in self.temp_dirs:
             print(f"❌ Repository {repo_name} not set up")
             return False
@@ -144,6 +147,17 @@ class GitHubOperations:
         
         if not message:
             message = f"Test commit - {datetime.now().isoformat()}"
+        
+        # Use default branch if none specified
+        if not branch:
+            # Import GitHubFetcher to get default branch
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from modules.github_fetcher import GitHubFetcher
+            
+            fetcher = GitHubFetcher()
+            repo_url = self.test_repos.get(repo_name)
+            owner, repo = repo_url.split('github.com/')[1].split('/')[:2]
+            branch = fetcher.get_default_branch(owner, repo)
         
         try:
             # Ensure we're on the correct branch
@@ -210,9 +224,20 @@ class GitHubOperations:
         repo_dir = self.temp_dirs[repo_name]
         
         try:
-            # Checkout main and pull latest
-            self._run_command(['git', 'checkout', 'main'], cwd=repo_dir)
-            self._run_command(['git', 'pull', 'origin', 'main'], cwd=repo_dir)
+            # Get default branch and checkout/pull
+            # Import GitHubFetcher to get default branch
+            import sys
+            import os
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from modules.github_fetcher import GitHubFetcher
+            
+            fetcher = GitHubFetcher()
+            repo_url = self.test_repos.get(repo_name)
+            owner, repo = repo_url.split('github.com/')[1].split('/')[:2]
+            default_branch = fetcher.get_default_branch(owner, repo)
+            
+            self._run_command(['git', 'checkout', default_branch], cwd=repo_dir)
+            self._run_command(['git', 'pull', 'origin', default_branch], cwd=repo_dir)
             
             # Check and delete existing branch if it exists
             if self._branch_exists_local(branch_name, repo_dir):
@@ -335,7 +360,20 @@ class GitHubOperations:
             # Get all branches
             branches = self.get_available_branches(repo_name)
             if not branches:
-                branches = ['main']  # Fallback to main
+                # Fallback to default branch instead of hardcoded 'main'
+                import sys
+                import os
+                sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                from modules.github_fetcher import GitHubFetcher
+                
+                fetcher = GitHubFetcher()
+                repo_url = self.test_repos.get(repo_name)
+                if repo_url:
+                    owner, repo = repo_url.split('github.com/')[1].split('/')[:2]
+                    default_branch = fetcher.get_default_branch(owner, repo)
+                    branches = [default_branch]
+                else:
+                    branches = ['main']  # Ultimate fallback
             
             for branch in branches:
                 commits = self.get_test_commits_in_history(repo_name, branch)
@@ -463,7 +501,20 @@ class GitHubOperations:
         try:
             branches = self.get_available_branches(repo_name)
             if not branches:
-                branches = ['main']  # Fallback
+                # Fallback to default branch instead of hardcoded 'main'
+                import sys
+                import os
+                sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                from modules.github_fetcher import GitHubFetcher
+                
+                fetcher = GitHubFetcher()
+                repo_url = self.test_repos.get(repo_name)
+                if repo_url:
+                    owner, repo = repo_url.split('github.com/')[1].split('/')[:2]
+                    default_branch = fetcher.get_default_branch(owner, repo)
+                    branches = [default_branch]
+                else:
+                    branches = ['main']  # Ultimate fallback
             
             overall_success = True
             total_deleted = 0
@@ -618,27 +669,73 @@ class GitHubOperations:
             return False
     
     def _cleanup_test_branches(self, repo_name: str) -> bool:
-        """Delete test branches from remote repository"""
+        """Delete test branches from remote repository using pattern matching"""
         if repo_name not in self.temp_dirs:
             return False
         
         repo_dir = self.temp_dirs[repo_name]
-        test_branches = ['test-feature']  # List of test branches to clean up
         
         try:
+            # Get all remote branches using GitHub CLI
+            repo_url = self.test_repos.get(repo_name)
+            if not repo_url or 'github.com/' not in repo_url:
+                if self.debug:
+                    print(f"❌ Invalid repo URL for {repo_name}")
+                return False
+            
+            repo_path = repo_url.split('github.com/')[-1]
+            if repo_path.endswith('.git'):
+                repo_path = repo_path[:-4]
+            
+            # Get all branches
+            result = self._run_command(['gh', 'api', f'repos/{repo_path}/branches', '--jq', '.[].name'])
+            if result.returncode != 0:
+                if self.debug:
+                    print(f"❌ Failed to get branches for {repo_name}")
+                return False
+            
+            all_branches = [branch.strip() for branch in result.stdout.strip().split('\n') if branch.strip()]
+            
+            # Filter for test branches using patterns
+            test_branch_patterns = ['test-feature', 'test-new-']
+            test_branches = []
+            
+            for branch in all_branches:
+                # Check if branch matches any test pattern
+                if any(branch.startswith(pattern) for pattern in test_branch_patterns):
+                    test_branches.append(branch)
+            
+            if not test_branches:
+                if self.debug:
+                    print(f"ℹ️ No test branches found to clean up in {repo_name}")
+                return True
+            
+            if self.debug:
+                print(f"🗑️ Found {len(test_branches)} test branches to delete in {repo_name}: {test_branches}")
+            
+            # Delete each test branch
+            overall_success = True
             for branch in test_branches:
-                # Check if remote branch exists before deletion
+                # Double-check branch exists remotely before deletion
                 if self._branch_exists_remote(branch, repo_dir):
-                    result = self._run_command(['git', 'push', 'origin', '--delete', branch], cwd=repo_dir)
-                    if self.debug:
-                        status = "✅" if result.returncode == 0 else "❌"
-                        print(f"{status} Cleaned up remote branch {branch} on {repo_name}")
+                    delete_result = self._run_command(['git', 'push', 'origin', '--delete', branch], cwd=repo_dir)
+                    if delete_result.returncode == 0:
+                        if self.debug:
+                            print(f"✅ Deleted remote branch {branch} from {repo_name}")
+                        else:
+                            print(f"🗑️ Deleted branch: {repo_path}/{branch}")
+                    else:
+                        overall_success = False
+                        if self.debug:
+                            print(f"❌ Failed to delete branch {branch} from {repo_name}: {delete_result.stderr}")
                 else:
                     if self.debug:
                         print(f"ℹ️ Remote branch {branch} does not exist on {repo_name}, skipping")
-            return True
+            
+            return overall_success
+            
         except Exception as e:
-            print(f"⚠️ Branch cleanup failed: {e}")
+            print(f"⚠️ Branch cleanup failed for {repo_name}: {e}")
             return False
     
     def get_available_branches(self, repo_name: str) -> List[str]:
@@ -723,7 +820,7 @@ if __name__ == "__main__":
         exit(1)
     
     # Test commit creation
-    if ops.create_test_commit('testing', 'main', 'Test framework validation commit'):
+    if ops.create_test_commit('testing', None, 'Test framework validation commit'):
         print("✅ Test commit successful")
     else:
         print("❌ Test commit failed")

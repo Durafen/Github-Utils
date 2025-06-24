@@ -161,8 +161,11 @@ The framework features **improved visual formatting** with cleaner phase separat
 - **📊 Comprehensive Reporting**: Detailed reports with success rates and timing
 - **🔍 Deep Validation**: Tests command success, output patterns, state updates, and performance
 - **🚨 Enhanced Validation**: Detects broken AI generation and empty output sections
-- **🧹 Automatic Cleanup**: Cleans up temporary files and test artifacts
+- **🧹 Automatic Cleanup**: Cleans up temporary files, test commits, and test branches
+- **🌿 Dynamic Branch Management**: Creates and deletes test branches using pattern matching (`test-feature`, `test-new-*`)
+- **⚙️ Configurable Cleanup**: Per-phase cleanup controlled by `delete_commits_after_phase` setting
 - **🛡️ Error Recovery**: Continues testing even if individual scenarios fail
+- **🚀 Real-time Output**: Elegant subprocess handling with live command output display
 
 ## Hybrid Approach Benefits
 
@@ -204,7 +207,7 @@ Enable debug mode for detailed output:
 ```bash
 python3 test_framework/main_test.py --debug
 
-# Or use the debug script with logging (creates test_framework.log)
+# Or use the debug script with logging (creates tests.log)
 test_framework/run_debug.sh
 ```
 
@@ -214,13 +217,13 @@ The `run_debug.sh` bash script provides enhanced debugging with automatic loggin
 
 **Script Features:**
 - **Auto-navigation**: Changes to project root from script directory
-- **Clean logging**: Removes old `test_framework.log` before each run
+- **Clean logging**: Removes old `tests.log` before each run
 - **Live output**: Shows test progress in terminal via `tee`
-- **Complete capture**: Saves all stdout/stderr to `test_framework.log`
+- **Complete capture**: Saves all stdout/stderr to `tests.log`
 - **Unbuffered output**: Uses `python3 -u` for real-time display
 
 **Generated Files:**
-- **`test_framework.log`**: Complete test execution log with all debug output
+- **`tests.log`**: Complete test execution log with all debug output
 - **`test_reports/test_report_YYYYMMDD_HHMMSS.json`**: Detailed JSON test reports with metrics
 - **`success.md`**: Success tracking log created by test framework (when tests pass)
 
@@ -231,7 +234,7 @@ Debug mode shows:
 - Performance metrics
 - Error details
 
-The `run_debug.sh` script automatically saves all output to `test_framework.log` for post-run analysis, while `success.md` tracks successful test completions.
+The `run_debug.sh` script automatically saves all output to `tests.log` for post-run analysis, while `success.md` tracks successful test completions.
 
 ### Enhanced Validation System
 
@@ -367,12 +370,51 @@ self.mock_responses['custom_scenario'] = self._create_custom_response()
 - **GitHub operations**: 2-5 seconds per commit
 - **AI mocking**: < 0.1 seconds per call
 
+## Recent Improvements (Last 10 Commits)
+
+**Latest Enhancements:**
+- **🌿 Fixed Branch Cleanup**: Dynamic pattern matching now properly deletes `test-feature` and `test-new-*` branches across all 3 phases
+- **🔧 Repository Configuration**: Updated from ccusage to ant-javacard for better testing scenarios  
+- **✅ Pattern Validation**: Improved validation with streamlined GitHub operations
+- **🚨 Error Visibility**: Test framework errors now always visible regardless of debug mode
+- **🆕 10-Step Validation**: Implemented comprehensive validation cycles with NEW branch creation
+- **🔍 Repository Validation**: Added critical repository validation in step 1 of every phase
+- **📚 Documentation**: Enhanced README with clear git worktree usage instructions
+- **⚡ Real-time Output**: Elegant subprocess solution with live command output display
+- **⏱️ Timeout Handling**: Improved timeout configuration and display settings
+- **🧹 Configurable Cleanup**: Per-phase commit cleanup controlled by settings
+
+## Cleanup System Architecture
+
+The framework now features **two-tier cleanup** with comprehensive artifact management:
+
+### **Phase-End Cleanup** (After each test phase)
+- **Triggered by**: `delete_commits_after_phase = true` setting
+- **Scope**: Test commits + test branches from all active repositories
+- **Frequency**: After forks analysis, news about forks, and news regular repo phases
+
+### **Final Cleanup** (At framework completion)  
+- **Triggered by**: Framework shutdown
+- **Scope**: Temporary directories, any remaining test artifacts
+- **Frequency**: Once at the end of test execution
+
+### **Dynamic Branch Detection**
+```python
+# Patterns used for test branch cleanup
+test_branch_patterns = ['test-feature', 'test-new-']
+
+# Matches branches like:
+# - test-feature
+# - test-new-1234567890  
+# - test-new-1750729248
+```
+
 ## Security
 
 - **No API keys required**: AI responses are mocked
 - **Read-only testing**: Only creates test commits, no destructive operations
 - **Isolated test data**: Uses dedicated test repositories
-- **Cleanup guaranteed**: Removes temporary files even on failures
+- **Cleanup guaranteed**: Removes temporary files, commits, and branches even on failures
 
 ---
 

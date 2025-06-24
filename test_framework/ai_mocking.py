@@ -17,100 +17,21 @@ class AIMockingManager:
     def __init__(self, debug: bool = False):
         self.debug = debug
         self.mock_responses = {
-            'forks_analysis': self._create_forks_response(),
-            'news_main': self._create_news_main_response(),
-            'news_branch': self._create_news_branch_response(),
-            'news_multi': self._create_news_multi_response(),
-            'default': self._create_default_response()
+            'default': self._create_mock_response()
         }
         self.call_count = 0
         # Store original subprocess.run to avoid recursion
         self.original_subprocess_run = subprocess.run
     
-    def _create_forks_response(self) -> str:
-        """Mock response for forks analysis"""
-        return """✅ Fork Analysis Complete
-
-🍴 **Active Forks Detected**
-- Found 3 forks with recent activity
-- 2 forks ahead of parent repository
-- Most active fork: 12 commits ahead
-
-**Key Fork Insights:**
-- Enhanced authentication system implementation
-- Performance optimizations in core modules
-- Additional testing framework additions
-- New feature implementations"""
-    
-    def _create_news_main_response(self) -> str:
-        """Mock response for main branch news"""
-        return """✅ Main Branch Updates Detected
-
-📰 **Repository Activity Summary**
-- 3 new commits on main branch
-- Latest activity: 2 hours ago
-- Primary contributor: test automation
-
-**Recent Changes:**
-- Implemented test framework validation
-- Enhanced error handling mechanisms
-- Updated documentation structure
-- Performance improvements"""
-    
-    def _create_news_branch_response(self) -> str:
-        """Mock response for branch news"""
-        return """✅ Branch Updates Detected
-
-🌿 **Feature Branch Activity**
-- 2 new commits on test-feature branch
-- Branch ahead of main by 2 commits
-- Active development in progress
-
-**Branch Changes:**
-- Feature implementation in progress
-- Unit tests added for new functionality
-- Code review feedback incorporated"""
-    
-    def _create_news_multi_response(self) -> str:
-        """Mock response for multi-branch news"""
-        return """✅ Multi-Branch Updates Detected
-
-📰 **Main Branch (3 commits)**
-- Core functionality improvements
-- Documentation updates
-- Bug fixes
-
-🌿 **test-feature Branch (2 commits)**
-- New feature development
-- Testing framework enhancements
-
-**Overall Impact:**
-- Significant progress across multiple development streams
-- Coordinated development effort visible"""
-    
-    def _create_default_response(self) -> str:
-        """Default mock response"""
-        return """✅ AI Analysis Complete
-
-**Summary Generated**
-- Repository analysis completed successfully
-- Changes detected and summarized
-- Test framework validation passed"""
+    def _create_mock_response(self) -> str:
+        """Single mock response for all scenarios"""
+        return "Changes detected and summarized by AI mocking"
     
     def _get_mock_response(self, prompt: str, scenario_hint: Optional[str] = None) -> str:
-        """Get appropriate mock response based on prompt content or scenario"""
+        """Get the single mock response"""
         self.call_count += 1
         
-        if scenario_hint and scenario_hint in self.mock_responses:
-            response = self.mock_responses[scenario_hint]
-        elif 'fork' in prompt.lower():
-            response = self.mock_responses['forks_analysis']
-        elif 'main' in prompt.lower() and 'branch' in prompt.lower():
-            response = self.mock_responses['news_main']
-        elif 'feature' in prompt.lower() or 'branch' in prompt.lower():
-            response = self.mock_responses['news_branch']
-        else:
-            response = self.mock_responses['default']
+        response = self.mock_responses['default']
         
         if self.debug:
             print(f"🤖 AI Mock #{self.call_count}: Generated {len(response)} chars")
@@ -167,44 +88,47 @@ class AIMockingManager:
     
     @contextmanager
     def mock_ai_providers(self, scenario_hint: Optional[str] = None):
-        """Context manager for mocking both OpenAI and Claude CLI"""
-        self._current_scenario = scenario_hint
+        """Context manager for mocking both OpenAI and Claude CLI using environment variables"""
+        import os
+        
+        # Store original environment values to restore later
+        original_test_mode = os.environ.get('GH_UTILS_TEST_MODE')
+        original_test_scenario = os.environ.get('GH_UTILS_TEST_SCENARIO')
         
         try:
-            # Mock the openai module itself since ai_provider.py does dynamic import
-            with patch.dict('sys.modules', {'openai': Mock()}) as mock_modules:
-                with patch('subprocess.run', side_effect=self._mock_claude_subprocess):
-                    # Get the mocked openai module
-                    mock_openai_module = mock_modules['openai']
-                    
-                    # Setup OpenAI mock client
-                    mock_client = Mock()
-                    mock_openai_module.OpenAI.return_value = mock_client
-                    
-                    def mock_create(*args, **kwargs):
-                        messages = kwargs.get('messages', [])
-                        prompt = ""
-                        for message in messages:
-                            if message.get('role') == 'user':
-                                prompt = message.get('content', '')
-                                break
-                        return self._mock_openai_response(prompt, scenario_hint)
-                    
-                    mock_client.chat.completions.create = mock_create
-                    
-                    if self.debug:
-                        print(f"🤖 AI Mocking active (scenario: {scenario_hint})")
-                    
-                    yield self
+            # Set environment variables for test mode
+            os.environ['GH_UTILS_TEST_MODE'] = '1'
+            if scenario_hint:
+                os.environ['GH_UTILS_TEST_SCENARIO'] = scenario_hint
+            else:
+                os.environ['GH_UTILS_TEST_SCENARIO'] = 'default'
+            
+            if self.debug:
+                print(f"🤖 AI Mocking active (scenario: {scenario_hint})")
+            
+            # Reset call count for this mocking session
+            self.call_count = 0
+            
+            yield self
                     
         except Exception as e:
             if self.debug:
                 print(f"❌ AI Mocking error: {e}")
             raise
         finally:
-            self._current_scenario = None
+            # Restore original environment variables
+            if original_test_mode is not None:
+                os.environ['GH_UTILS_TEST_MODE'] = original_test_mode
+            else:
+                os.environ.pop('GH_UTILS_TEST_MODE', None)
+            
+            if original_test_scenario is not None:
+                os.environ['GH_UTILS_TEST_SCENARIO'] = original_test_scenario
+            else:
+                os.environ.pop('GH_UTILS_TEST_SCENARIO', None)
+            
             if self.debug:
-                print(f"🤖 AI Mocking complete ({self.call_count} calls)")
+                print(f"🤖 AI Mocking complete")
     
     def reset_call_count(self):
         """Reset the AI call counter"""
@@ -213,6 +137,41 @@ class AIMockingManager:
     def get_call_count(self) -> int:
         """Get number of AI calls made"""
         return self.call_count
+    
+    def _get_subprocess_call_count(self) -> int:
+        """Get call count from subprocess environment variable"""
+        import os
+        try:
+            return int(os.environ.get('GH_UTILS_AI_CALL_COUNT', '0'))
+        except ValueError:
+            return 0
+    
+    
+    @staticmethod
+    def get_test_mode_response(prompt: str = "") -> dict:
+        """Get mock response if in test mode, None otherwise"""
+        import os
+        
+        if os.environ.get('GH_UTILS_TEST_MODE') != '1':
+            return None
+        
+        # Note: Call count tracking removed as it doesn't work reliably across process boundaries
+        
+        scenario = os.environ.get('GH_UTILS_TEST_SCENARIO', 'default')
+        
+        # Always use the single mock response
+        content = "Changes detected and summarized by AI mocking"
+        
+        return {
+            'summary': content,
+            'cost_info': {
+                'input_tokens': len(prompt) // 4,
+                'output_tokens': len(content) // 4,
+                'total_tokens': (len(prompt) + len(content)) // 4,
+                'estimated_cost': 0.001,
+                'provider': 'AI Mock (test mode)'
+            }
+        }
 
 
 # Test the module functionality
@@ -222,7 +181,7 @@ if __name__ == "__main__":
     mocker = AIMockingManager(debug=True)
     
     # Test OpenAI mocking
-    with mocker.mock_ai_providers('news_main'):
+    with mocker.mock_ai_providers('default'):
         try:
             # This would normally fail without openai library installed
             # But our mock should handle it

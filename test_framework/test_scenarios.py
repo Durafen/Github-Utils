@@ -137,7 +137,7 @@ class TestScenariosManager:
         try:
             timestamp = int(time.time())
             message = f"Test main branch commit - {timestamp}"
-            success = self.runner.create_test_commit(repo_name, 'main', message)
+            success = self.runner.create_test_commit(repo_name, None, message)
             
             if self.debug and success:
                 print(f"✅ Created main branch commit for {repo_name}")
@@ -218,18 +218,7 @@ class TestScenariosManager:
             timestamp = int(time.time())
             message = f"Test new branch commit - {timestamp}"
             success = self.runner.create_test_commit(repo_name, branch_name, message)
-            
-            if success:
-                # Use same format as other commits - extract real GitHub path
-                repo_url = self.runner.github_ops.test_repos.get(repo_name, '')
-                if 'github.com/' in repo_url:
-                    repo_path = repo_url.split('github.com/')[-1]
-                    if repo_path.endswith('.git'):
-                        repo_path = repo_path[:-4]
-                    print(f"📝 Commit: {repo_path}/{branch_name}")
-                else:
-                    print(f"📝 Commit: {repo_name}/{branch_name}")
-            
+            # Note: Commit message already printed by github_operations.py
             return success
             
         except Exception as e:

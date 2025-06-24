@@ -140,6 +140,10 @@ class HybridTestRunner:
                     print("[Output hidden for first run of phase]")
                 
                 # Real-time subprocess execution with output capture
+                # Pass current environment including any test mode variables
+                current_env = os.environ.copy()
+                current_env['PYTHONUNBUFFERED'] = '1'
+                
                 with subprocess.Popen([
                     'python3', self.gh_utils_script
                 ] + command_args,
@@ -148,7 +152,7 @@ class HybridTestRunner:
                 text=True,
                 bufsize=1,  # Line buffered for real-time output
                 cwd=self.project_root,
-                env={**os.environ, 'PYTHONUNBUFFERED': '1'}
+                env=current_env
                 ) as process:
                     
                     # Real-time output display and capture
@@ -188,6 +192,13 @@ class HybridTestRunner:
                         if not self.validator.validate_section_completeness(stdout, command_type):
                             validation_success = False
                             validation_issues.append("Section completeness validation failed")
+                        
+                        # AI mocking validation - verifies mock responses are working
+                        ai_mock_valid = self.validator.validate_ai_mocking(stdout, command_type)
+                        if not ai_mock_valid:
+                            print(f"⚠️  AI mocking may not be working properly (real AI calls detected)")
+                        else:
+                            print(f"✅ AI mocking validation passed - mock responses detected")
                         
                         # If validation fails, override the success status
                         if not validation_success:
@@ -470,7 +481,7 @@ class HybridTestRunner:
             print(f"❌ Forks analysis test failed for {repo_name}: {e}")
             return False
     
-    def create_test_commit(self, repo_name: str, branch: str = 'main', 
+    def create_test_commit(self, repo_name: str, branch: str = None, 
                           message: Optional[str] = None) -> bool:
         """Create a test commit in the specified repository and branch"""
         try:

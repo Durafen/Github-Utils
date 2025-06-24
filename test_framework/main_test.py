@@ -242,7 +242,7 @@ class MainTestOrchestrator:
                 ('Test forks analysis after branch commit', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ant-javacard')),
                 ('Test forks analysis after multi-branch commits', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_multi')),
-                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ant-javacard') and self.scenarios_manager._create_commit_on_new_branch('ant-javacard')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_main_commit('ant-javacard') and self.scenarios_manager._create_new_single_branch('ant-javacard') and self.scenarios_manager._create_commit_on_new_branch('ant-javacard')),
                 ('Test forks analysis after NEW branch commit', lambda: self.runner.test_forks_analysis('ant-javacard', 'forks_new_branch')),
             ])
         ]
@@ -253,11 +253,20 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
-        # Clean up test commits at end of forks analysis phase (controlled by settings)
+        # Clean up test commits and branches at end of forks analysis phase (controlled by settings)
         if self.settings.get('delete_commits_after_phase', True):
             if self.debug:
                 print("\n🧹 Cleaning up test commits after forks analysis phase...")
             cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+            
+            # Also clean up test branches
+            if self.debug:
+                print("\n🧹 Cleaning up test branches after forks analysis phase...")
+            for repo_name in self.runner.github_ops.temp_dirs.keys():
+                branch_cleanup_success = self.runner.github_ops._cleanup_test_branches(repo_name)
+                if not branch_cleanup_success and self.debug:
+                    print(f"⚠️ Branch cleanup failed for {repo_name}")
+            
             if self.debug:
                 status = "✅" if cleanup_success else "⚠️"
                 print(f"{status} Forks analysis phase cleanup completed")
@@ -277,7 +286,7 @@ class MainTestOrchestrator:
                 ('Test news after branch commit', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('ant-javacard')),
                 ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('test-ant-javacard', 'news_multi')),
-                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('ant-javacard') and self.scenarios_manager._create_commit_on_new_branch('ant-javacard')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_main_commit('ant-javacard') and self.scenarios_manager._create_new_single_branch('ant-javacard') and self.scenarios_manager._create_commit_on_new_branch('ant-javacard')),
                 ('Test news after NEW branch commit', lambda: self.runner.test_news_detection('test-ant-javacard', 'new_branch')),
             ])
         ]
@@ -288,11 +297,20 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
-        # Clean up test commits at end of news about forks phase (controlled by settings)
+        # Clean up test commits and branches at end of news about forks phase (controlled by settings)
         if self.settings.get('delete_commits_after_phase', True):
             if self.debug:
                 print("\n🧹 Cleaning up test commits after news about forks phase...")
             cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+            
+            # Also clean up test branches
+            if self.debug:
+                print("\n🧹 Cleaning up test branches after news about forks phase...")
+            for repo_name in self.runner.github_ops.temp_dirs.keys():
+                branch_cleanup_success = self.runner.github_ops._cleanup_test_branches(repo_name)
+                if not branch_cleanup_success and self.debug:
+                    print(f"⚠️ Branch cleanup failed for {repo_name}")
+            
             if self.debug:
                 status = "✅" if cleanup_success else "⚠️"
                 print(f"{status} News about forks phase cleanup completed")
@@ -312,7 +330,7 @@ class MainTestOrchestrator:
                 ('Test news after branch commit', lambda: self.runner.test_news_detection('testing', 'news_branch')),
                 ('Create multi-branch commits', lambda: self._create_multi_branch_commits_dynamic('testing')),
                 ('Test news after multi-branch commits', lambda: self.runner.test_news_detection('testing', 'news_multi')),
-                ('Create NEW branch commit', lambda: self.scenarios_manager._create_new_single_branch('testing') and self.scenarios_manager._create_commit_on_new_branch('testing')),
+                ('Create NEW branch commit', lambda: self.scenarios_manager._create_main_commit('testing') and self.scenarios_manager._create_new_single_branch('testing') and self.scenarios_manager._create_commit_on_new_branch('testing')),
                 ('Test news after NEW branch commit', lambda: self.runner.test_news_detection('testing', 'new_branch')),
             ])
         ]
@@ -323,11 +341,20 @@ class MainTestOrchestrator:
             results.append(result)
             time.sleep(2)
         
-        # Clean up test commits at end of news about regular phase (controlled by settings)
+        # Clean up test commits and branches at end of news about regular phase (controlled by settings)
         if self.settings.get('delete_commits_after_phase', True):
             if self.debug:
                 print("\n🧹 Cleaning up test commits after news about regular phase...")
             cleanup_success = self.runner.github_ops.cleanup_test_commits(dry_run=False)
+            
+            # Also clean up test branches
+            if self.debug:
+                print("\n🧹 Cleaning up test branches after news about regular phase...")
+            for repo_name in self.runner.github_ops.temp_dirs.keys():
+                branch_cleanup_success = self.runner.github_ops._cleanup_test_branches(repo_name)
+                if not branch_cleanup_success and self.debug:
+                    print(f"⚠️ Branch cleanup failed for {repo_name}")
+            
             if self.debug:
                 status = "✅" if cleanup_success else "⚠️"
                 print(f"{status} News about regular phase cleanup completed")
@@ -358,7 +385,7 @@ class MainTestOrchestrator:
     def _create_main_commit(self, repo_name: str) -> bool:
         timestamp = int(time.time())
         message = f"Test main branch commit - {timestamp}"
-        return self.runner.create_test_commit(repo_name, 'main', message)
+        return self.runner.create_test_commit(repo_name, None, message)
     
     def _create_test_branch(self, repo_name: str, branch_name: str) -> bool:
         return self.runner.github_ops.create_dynamic_test_branch(repo_name, branch_name)
@@ -398,7 +425,7 @@ class MainTestOrchestrator:
         
         # Create commit on main branch
         main_success = self.runner.create_test_commit(
-            repo_name, 'main', f"Test multi-branch main commit - {timestamp}"
+            repo_name, None, f"Test multi-branch main commit - {timestamp}"
         )
         
         # Create commit on test-feature branch
@@ -414,7 +441,7 @@ class MainTestOrchestrator:
         
         # Create commit on main branch
         main_success = self.runner.create_test_commit(
-            repo_name, 'main', f"Test multi-branch main commit - {timestamp}"
+            repo_name, None, f"Test multi-branch main commit - {timestamp}"
         )
         
         # Get last non-main branch or use test-feature
