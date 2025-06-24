@@ -201,7 +201,11 @@ repo_timeout = 60              # Timeout per repository
 ./gh-utils.py forks
 
 # Debug mode with detailed output
-# (set debug=true in config.txt first)
+# Option 1: Command line flag (overrides config.txt)
+./gh-utils.py news --debug
+
+# Option 2: Config file setting (persistent)
+# Edit config.txt: debug = true
 ./gh-utils.py news
 ```
 
@@ -306,10 +310,14 @@ The project uses a **parallel processor pattern** with extensive code reuse:
 ### Development Setup
 ```bash
 # Enable debug mode for development
+# Option 1: Command line flag (temporary)
+./gh-utils.py news --debug
+
+# Option 2: Config file setting (persistent)
 # Edit config.txt: debug = true
 
 # Test with timeout for development
-timeout 30 ./gh-utils.py news
+timeout 30 ./gh-utils.py news --debug
 ```
 
 ## 📄 License
@@ -336,7 +344,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Make script executable: `chmod +x gh-utils.py`
 
 ### Debug Mode
-Enable detailed logging by setting `debug = true` in config.txt to see:
+Enable detailed logging in two ways:
+- **Command line**: `./gh-utils.py news --debug` (overrides config.txt)
+- **Config file**: Set `debug = true` in config.txt (persistent)
+
+Debug output includes:
 - GitHub API calls and responses
 - AI prompt details and token usage
 - State management operations

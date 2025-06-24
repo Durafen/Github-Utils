@@ -1,4 +1,3 @@
-import os
 from .ai_provider import create_ai_provider
 from .display import get_terminal_width
 

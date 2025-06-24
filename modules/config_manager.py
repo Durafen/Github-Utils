@@ -3,12 +3,11 @@ import os
 import configparser
 import shutil
 import sys
-from datetime import datetime
 from .comment_preserving_parser import CommentPreservingINIParser
 
 
 class ConfigManager:
-    def __init__(self, config_path='config.txt', state_path='state.json'):
+    def __init__(self, config_path='config.txt', state_path='state.json', debug_override=None):
         # Get the directory where this script/module is located
         self.script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
@@ -24,6 +23,7 @@ class ConfigManager:
             self.state_path = state_path
             
         self._config = None
+        self.debug_override = debug_override
     
     def _load_config(self):
         """Load INI config file"""
@@ -76,6 +76,10 @@ class ConfigManager:
     
     def get_boolean_setting(self, key, default='false'):
         """Get a boolean setting value (converts 'true'/'false' strings to bool)"""
+        # Check for debug override when key is 'debug'
+        if key == 'debug' and self.debug_override is not None:
+            return self.debug_override
+        
         # Handle case where default is already a boolean
         if isinstance(default, bool):
             default_str = 'true' if default else 'false'

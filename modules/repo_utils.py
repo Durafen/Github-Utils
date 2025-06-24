@@ -1,16 +1,10 @@
 """Repository utility functions - converted from RepositoryProcessorMixin"""
 
-from datetime import datetime
 from .state_manager import StateManager
 
 class RepoUtils:
     """Static utility functions for repository processing"""
     
-    @staticmethod
-    def extract_repo_info(repo_url, fetcher):
-        """Extract owner, repo name, and repo key from URL"""
-        owner, repo_name = fetcher.extract_owner_repo(repo_url)
-        return owner, repo_name, f"{owner}/{repo_name}".lower()
     
     @staticmethod
     def has_newer_commits(commits, last_commit, fetcher, owner, repo_name):

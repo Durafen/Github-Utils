@@ -112,7 +112,6 @@ class TerminalDisplay:
     def _print_summary_section(self, title, summary):
         """Print formatted summary section with separators"""
         width = self._get_separator_width()
-        print(f"{'-'*width}")
         print(title)
         print(f"{'-'*width}")
         print(summary)
@@ -216,7 +215,7 @@ class TerminalDisplay:
         
         # Print title with separators
         width = self._get_separator_width()
-        print(f"{'-'*width}")
+        print()  # Add spacing before repository headline
         print(title)
         
         # Display branch breakdown (matches fork display pattern)
@@ -237,7 +236,9 @@ class TerminalDisplay:
         
         print(f"{'-'*width}")
         print(summary)
-        print()
+        # Only add spacing if summary has content
+        if summary and summary.strip():
+            print()
 
     def display_branch_summary(self, branch_name, commits_ahead, summary, cost_info=None, show_costs=False, is_default=False, last_commit_timestamp=None):
         """Display individual branch summary with separate section"""

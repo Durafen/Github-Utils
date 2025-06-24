@@ -1,18 +1,17 @@
 import concurrent.futures
 import threading
-from datetime import datetime
 
 class ParallelBaseProcessor:
     """Parallel base processor for repository processing with thread safety"""
     
-    def __init__(self, template_name='summary', repositories=None):
+    def __init__(self, template_name='summary', repositories=None, debug_override=None):
         """Initialize processor with components (same as BaseProcessor)"""
         from .config_manager import ConfigManager
         from .github_fetcher import GitHubFetcher
         from .summary_generator import SummaryGenerator
         from .display import TerminalDisplay
         
-        self.config_manager = ConfigManager('config.txt')
+        self.config_manager = ConfigManager('config.txt', debug_override=debug_override)
         self.repos = repositories or self.config_manager.load_repositories()
         self.state = self._load_state_if_enabled()
         self._state_lock = threading.Lock()

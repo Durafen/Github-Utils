@@ -1,4 +1,6 @@
-# GitHub Utils - Project Index
+# GitHub Utils - Comprehensive Project Catalog
+
+This catalog provides a complete overview of all project files, directories, and their important functions/settings for AI usage to understand the project structure.
 
 ## Overview
 **gh-utils** is a GitHub repository monitoring tool that generates AI-powered summaries of repository activity with **4-worker parallel processing** for 70% faster execution. It supports two main operations: tracking commits/releases across repositories (news) and analyzing repository forks that are ahead of their parent (forks).

@@ -61,6 +61,11 @@ The project uses a **parallel processor pattern** with extensive code reuse thro
 # Forks: analyze repository forks ahead of parent - runs with 4 parallel workers
 ./gh-utils.py forks
 
+# Debug mode: enable debug output (overrides config.txt setting)
+./gh-utils.py news --debug
+./gh-utils.py forks --debug
+./gh-utils.py <repo> --debug
+
 # Repository management
 ./gh-utils.py add <github_url> [name]     # Add repository to config
 ./gh-utils.py remove <name>               # Remove repository 
@@ -75,8 +80,13 @@ cp config.example.txt config.txt
 pip install -r requirements.txt
 gh auth login
 
-# Enable debug mode (edit config.txt: debug = true)
-./gh-utils.py news    # Shows prompt details, API calls, token usage, parallel worker activity
+# Enable debug mode (two options):
+# Option 1: Command line flag (temporary, overrides config)
+./gh-utils.py news --debug    # Shows prompt details, API calls, token usage, parallel worker activity
+
+# Option 2: Config file setting (persistent)
+# Edit config.txt: debug = true
+./gh-utils.py news            # Shows debug output based on config setting
 
 # Enable cost tracking (edit config.txt: show_costs = true)
 ./gh-utils.py news    # Shows AI token usage and estimated costs

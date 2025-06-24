@@ -2,13 +2,12 @@ from .parallel_base_processor import ParallelBaseProcessor
 from .repo_utils import RepoUtils
 from .commit_utils import filter_commits_since_last_processed
 from .state_manager import StateManager
-from datetime import datetime
 
 class NewsProcessor(ParallelBaseProcessor):
     """Processor for news summaries (commits and releases)"""
     
-    def __init__(self, repositories=None):
-        super().__init__(template_name='summary', repositories=repositories)
+    def __init__(self, repositories=None, debug_override=None):
+        super().__init__(template_name='summary', repositories=repositories, debug_override=debug_override)
     
     @property
     def state_type(self):
@@ -16,7 +15,8 @@ class NewsProcessor(ParallelBaseProcessor):
     
     def _process_repository(self, repo):
         """Optimized repository processing with early-exit state validation"""
-        owner, repo_name, repo_key = RepoUtils.extract_repo_info(repo['url'], self.fetcher)
+        from .url_utils import extract_repo_info
+        owner, repo_name, repo_key = extract_repo_info(repo['url'], self.fetcher, include_repo_key=True)
         
         # PHASE 1: Quick repository state check (early exit optimization)
         current_main_sha = self.fetcher.get_current_main_sha(owner, repo_name)

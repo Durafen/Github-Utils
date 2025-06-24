@@ -10,24 +10,19 @@ def is_github_url(arg):
     return arg.startswith(('https://github.com/', 'http://github.com/', 'github.com/'))
 
 
+def extract_repo_info(url, fetcher=None, include_repo_key=False):
+    """Extract owner and repo name from GitHub URL - consolidated utility function"""
+    from modules.url_utils import extract_repo_info as _extract_repo_info
+    return _extract_repo_info(url, fetcher, include_repo_key)
+
+
 def create_temp_repository(url):
     """Create temporary repository structure from URL"""
-    try:
-        from modules.github_fetcher import GitHubFetcher
-        fetcher = GitHubFetcher()
-        owner, repo_name = fetcher.extract_owner_repo(url)
-        
-        return {
-            'name': repo_name,
-            'url': url
-        }
-    except Exception:
-        # Fallback: extract name from URL manually
-        repo_name = url.rstrip('/').split('/')[-1] if '/' in url else url
-        return {
-            'name': repo_name,
-            'url': url
-        }
+    owner, repo_name = extract_repo_info(url)
+    return {
+        'name': repo_name,
+        'url': url
+    }
 
 
 def add_command():
@@ -44,13 +39,8 @@ def add_command():
         name = sys.argv[3]
     else:
         # Extract repo name from URL
-        try:
-            from modules.github_fetcher import GitHubFetcher
-            fetcher = GitHubFetcher()
-            owner, repo_name = fetcher.extract_owner_repo(url)
-            name = repo_name
-        except:
-            name = url.rstrip('/').split('/')[-1] if '/' in url else url
+        owner, repo_name = extract_repo_info(url)
+        name = repo_name
     
     try:
         config_manager = ConfigManager()
@@ -100,10 +90,8 @@ def list_command():
         for repo in repos:
             try:
                 # Extract owner/repo for state key
-                from modules.github_fetcher import GitHubFetcher
-                fetcher = GitHubFetcher()
-                owner, repo_name = fetcher.extract_owner_repo(repo['url'])
-                repo_key = f"{owner}/{repo_name}"
+                owner, repo_name = extract_repo_info(repo['url'])
+                repo_key = f"{owner}/{repo_name}" if owner else repo_name
                 
                 # Get last commit info
                 last_commit = state.get(repo_key, {}).get('last_commit', 'Not tracked')
@@ -175,6 +163,84 @@ def resolve_repository_argument(arg):
             sys.exit(1)
 
 
+def execute_processor(processor_type, repositories=None, debug_override=None):
+    """Execute a processor with error handling"""
+    processors = {
+        'news': NewsProcessor,
+        'forks': ForksProcessor,
+    }
+    
+    if processor_type not in processors:
+        print(f"Unknown processor type: {processor_type}")
+        print(f"Available processors: {', '.join(processors.keys())}")
+        sys.exit(1)
+    
+    try:
+        if repositories:
+            processor = processors[processor_type](repositories=repositories, debug_override=debug_override)
+        else:
+            processor = processors[processor_type](debug_override=debug_override)
+        processor.execute()
+    except Exception as e:
+        if repositories:
+            repo_name = repositories[0].get('name', 'unknown') if repositories else 'unknown'
+            print(f"❌ Error processing repository '{repo_name}': {e}")
+        else:
+            print(f"❌ Error: {e}")
+        sys.exit(1)
+
+
+def handle_repo_with_processor(repo_arg, processor_type='news', debug_override=None):
+    """Handle repository argument with optional processor type"""
+    repositories = resolve_repository_argument(repo_arg)
+    execute_processor(processor_type, repositories, debug_override)
+
+
+def handle_alias_or_url_command(command, debug_override):
+    """Handle commands that might be repository aliases or URLs"""
+    # Check if it's a URL
+    if is_github_url(command):
+        processor_type = sys.argv[2].lower() if len(sys.argv) > 2 else 'news'
+        handle_repo_with_processor(command, processor_type, debug_override)
+        return True
+    
+    # Check if it's a valid alias (but not a known command)
+    if command not in ['news', 'forks', 'add', 'remove', 'list', 'clear']:
+        config_manager = ConfigManager()
+        if config_manager.find_repository_by_alias(command):
+            processor_type = sys.argv[2].lower() if len(sys.argv) > 2 else 'news'
+            handle_repo_with_processor(command, processor_type, debug_override)
+            return True
+    
+    return False
+
+
+def show_help():
+    """Display help information"""
+    print("Usage:")
+    print("  ./gh-utils.py [news] [--debug]       - Show repository news (default)")
+    print("  ./gh-utils.py forks [--debug]        - Analyze repository forks")
+    print("  ./gh-utils.py <repo> [news] [--debug] - Process repository by URL/alias for news (default)")
+    print("  ./gh-utils.py <repo> forks [--debug] - Process repository by URL/alias for forks")
+    print("  ./gh-utils.py news <repo> [--debug] - Process repository by URL/alias for news")
+    print("  ./gh-utils.py forks <repo> [--debug] - Process repository by URL/alias for forks")
+    print("  ./gh-utils.py add <url> [name]      - Add repository")
+    print("  ./gh-utils.py remove <name>         - Remove repository")
+    print("  ./gh-utils.py list                  - List repositories")
+    print("  ./gh-utils.py clear <name>          - Clear repository state")
+    print("")
+    print("Options:")
+    print("  --debug                             - Enable debug mode (overrides config.txt setting)")
+    print("")
+    print("Examples:")
+    print("  ./gh-utils.py news ccusage           - Process 'ccusage' alias for news")
+    print("  ./gh-utils.py forks ccusage          - Process 'ccusage' alias for forks")
+    print("  ./gh-utils.py ccusage                - Process 'ccusage' alias for news (default)")
+    print("  ./gh-utils.py ccusage forks          - Process 'ccusage' alias for forks")
+    print("  ./gh-utils.py news --debug           - Process all repositories with debug output")
+    print("  ./gh-utils.py forks ccusage --debug  - Process 'ccusage' for forks with debug output")
+
+
 def news_command():
     """News command using new processor architecture"""
     try:
@@ -186,102 +252,41 @@ def news_command():
 
 
 def main():
-    """Main entry point with command routing"""
-    processors = {
-        'news': NewsProcessor,
-        'forks': ForksProcessor,
-    }
+    """Main entry point with simplified command routing"""
+    # Check for --debug flag and remove it from arguments
+    debug_override = '--debug' in sys.argv
+    if debug_override:
+        sys.argv = [arg for arg in sys.argv if arg != '--debug']
     
     command = sys.argv[1].lower() if len(sys.argv) > 1 else 'news'
     
-    # Repository specifier as first argument (URL or valid alias)
-    if is_github_url(command):
-        # Case 1a: ./gh-utils.py <url> [processor_type]
-        processor_type = sys.argv[2].lower() if len(sys.argv) > 2 else 'news'
-        
-        if processor_type in processors:
-            try:
-                repositories = resolve_repository_argument(command)
-                processor = processors[processor_type](repositories=repositories)
-                processor.execute()
-                return
-            except Exception as e:
-                print(f"❌ Error processing repository '{command}': {e}")
-                sys.exit(1)
-        else:
-            print(f"Unknown processor type: {processor_type}")
-            print(f"Available processors: {', '.join(processors.keys())}")
-            sys.exit(1)
+    # Handle repository aliases and URLs (e.g., ./gh-utils.py <repo> [processor])
+    if handle_alias_or_url_command(command, debug_override):
+        return
     
-    # Check if command is a valid alias (but not a known command)
-    elif command not in processors and command not in ['add', 'remove', 'list', 'clear']:
-        # Case 1b: ./gh-utils.py <alias> [processor_type]
-        config_manager = ConfigManager()
-        if config_manager.find_repository_by_alias(command):
-            processor_type = sys.argv[2].lower() if len(sys.argv) > 2 else 'news'
-            
-            if processor_type in processors:
-                try:
-                    repositories = resolve_repository_argument(command)
-                    processor = processors[processor_type](repositories=repositories)
-                    processor.execute()
-                    return
-                except Exception as e:
-                    print(f"❌ Error processing repository '{command}': {e}")
-                    sys.exit(1)
-            else:
-                print(f"Unknown processor type: {processor_type}")
-                print(f"Available processors: {', '.join(processors.keys())}")
-                sys.exit(1)
-        # If not a valid alias, fall through to show help
-    
-    # Processor command with optional repository specifier
-    elif command in processors:
+    # Handle processor commands (e.g., ./gh-utils.py news [repo])
+    if command in ['news', 'forks']:
         if len(sys.argv) > 2:
-            # Case 2: ./gh-utils.py news <repo_specifier> OR ./gh-utils.py forks <repo_specifier>
-            try:
-                repositories = resolve_repository_argument(sys.argv[2])
-                processor = processors[command](repositories=repositories)
-                processor.execute()
-                return
-            except Exception as e:
-                print(f"❌ Error processing repository '{sys.argv[2]}': {e}")
-                sys.exit(1)
+            # Process specific repository: ./gh-utils.py news <repo>
+            handle_repo_with_processor(sys.argv[2], command, debug_override)
         else:
-            # Case 3: ./gh-utils.py news OR ./gh-utils.py forks (all configured repos)
-            try:
-                processor = processors[command]()
-                processor.execute()
-            except Exception as e:
-                print(f"❌ Error: {e}")
-                sys.exit(1)
-    elif command == "add":
-        add_command()
-    elif command == "remove":
-        remove_command()
-    elif command == "list":
-        list_command()
-    elif command == "clear":
-        clear_command()
+            # Process all repositories: ./gh-utils.py news
+            execute_processor(command, debug_override=debug_override)
+        return
+    
+    # Handle management commands
+    command_handlers = {
+        'add': add_command,
+        'remove': remove_command,
+        'list': list_command,
+        'clear': clear_command,
+    }
+    
+    if command in command_handlers:
+        command_handlers[command]()
     else:
         print(f"Unknown command: {command}")
-        print("Usage:")
-        print("  ./gh-utils.py [news]                 - Show repository news (default)")
-        print("  ./gh-utils.py forks                  - Analyze repository forks")
-        print("  ./gh-utils.py <repo> [news]          - Process repository by URL/alias for news (default)")
-        print("  ./gh-utils.py <repo> forks           - Process repository by URL/alias for forks")
-        print("  ./gh-utils.py news <repo>            - Process repository by URL/alias for news")
-        print("  ./gh-utils.py forks <repo>           - Process repository by URL/alias for forks")
-        print("  ./gh-utils.py add <url> [name]       - Add repository")
-        print("  ./gh-utils.py remove <name>          - Remove repository")
-        print("  ./gh-utils.py list                   - List repositories")
-        print("  ./gh-utils.py clear <name>           - Clear repository state")
-        print("")
-        print("Examples:")
-        print("  ./gh-utils.py news ccusage           - Process 'ccusage' alias for news")
-        print("  ./gh-utils.py forks ccusage          - Process 'ccusage' alias for forks")
-        print("  ./gh-utils.py ccusage                - Process 'ccusage' alias for news (default)")
-        print("  ./gh-utils.py ccusage forks          - Process 'ccusage' alias for forks")
+        show_help()
         sys.exit(1)
 
 

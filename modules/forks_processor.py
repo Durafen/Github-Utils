@@ -1,5 +1,4 @@
 from .parallel_base_processor import ParallelBaseProcessor
-from .repo_utils import RepoUtils
 from .debug_logger import DebugLogger
 from .commit_utils import filter_commits_since_last_processed
 from .state_manager import StateManager
@@ -8,8 +7,8 @@ from datetime import datetime
 class ForksProcessor(ParallelBaseProcessor):
     """Processor for fork analysis (forks ahead of parent)"""
     
-    def __init__(self, repositories=None):
-        super().__init__(template_name='fork_summary', repositories=repositories)
+    def __init__(self, repositories=None, debug_override=None):
+        super().__init__(template_name='fork_summary', repositories=repositories, debug_override=debug_override)
         self.debug_logger = DebugLogger(self.config_manager)
     
     @property
@@ -21,7 +20,8 @@ class ForksProcessor(ParallelBaseProcessor):
         # Reset cost tracking at start of each repository
         self.generator.ai_provider.reset()
         
-        owner, repo_name, repo_key = RepoUtils.extract_repo_info(repo['url'], self.fetcher)
+        from .url_utils import extract_repo_info
+        owner, repo_name, repo_key = extract_repo_info(repo['url'], self.fetcher, include_repo_key=True)
         
         # Get configuration limits
         max_forks = self.config_manager.get_int_setting('max_forks', 20)
