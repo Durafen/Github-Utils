@@ -1,9 +1,8 @@
 import concurrent.futures
 import threading
-from abc import ABC, abstractmethod
 from datetime import datetime
 
-class ParallelBaseProcessor(ABC):
+class ParallelBaseProcessor:
     """Parallel base processor for repository processing with thread safety"""
     
     def __init__(self, template_name='summary', repositories=None):
@@ -30,10 +29,9 @@ class ParallelBaseProcessor(ABC):
             raise
     
     @property
-    @abstractmethod
     def state_type(self):
-        """Return the state type for this processor"""
-        pass
+        """Return the state type for this processor (override in subclasses)"""
+        raise NotImplementedError("Subclasses must implement state_type property")
     
     def _load_state_if_enabled(self):
         """Load state if save_state is enabled"""
@@ -61,12 +59,8 @@ class ParallelBaseProcessor(ABC):
         max_workers = min(len(self.repos), self.config_manager.get_int_setting('max_workers', 4))
         repo_timeout = self.config_manager.get_int_setting('repo_timeout', 60)
         
-        # Start display thread for ordered output
-        from queue import Queue
-        self._display_queue = Queue()
-        display_thread = threading.Thread(target=self._display_worker)
-        display_thread.daemon = True
-        display_thread.start()
+        # Initialize display lock for thread-safe output
+        self._display_lock = threading.Lock()
         
         # Process repositories in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -81,11 +75,7 @@ class ParallelBaseProcessor(ABC):
                 try:
                     future.result(timeout=repo_timeout)
                 except Exception as e:
-                    self._safe_display_error(f"❌ {repo['name']}: {e}")
-        
-        # Signal display thread to finish and wait for all output
-        self._display_queue.put(None)
-        display_thread.join(timeout=10)
+                    self._safe_display('error', f"❌ {repo['name']}: {e}")
         
         # Final state save
         self._save_state_if_enabled()
@@ -99,15 +89,19 @@ class ParallelBaseProcessor(ABC):
                 # Save state immediately after successful processing
                 self._save_repository_state(repo)
             except Exception as e:
-                self._safe_display_error(f"❌ Repository {repo_name} failed: {e}")
+                self._safe_display('error', f"❌ Repository {repo_name} failed: {e}")
     
-    def _display_worker(self):
-        """Background thread for ordered display output"""
-        while True:
-            item = self._display_queue.get()
-            if item is None:  # Shutdown signal
-                break
-            item()  # Execute display function
+    def _safe_display(self, method_name, *args, **kwargs):
+        """Generic thread-safe display wrapper"""
+        with self._display_lock:
+            if hasattr(self.display, method_name):
+                method = getattr(self.display, method_name)
+                method(*args, **kwargs)
+            elif method_name in ['error', 'debug']:
+                # Handle print-based methods
+                print(*args)
+            else:
+                raise AttributeError(f"Display method '{method_name}' not found")
     
     def _save_repository_state(self, repo):
         """Save state for individual repository immediately after processing"""
@@ -116,63 +110,11 @@ class ParallelBaseProcessor(ABC):
                 with self._state_lock:
                     self.config_manager.save_state(self.state, self.state_type)
                 if self.config_manager.get_boolean_setting('debug'):
-                    self._safe_display_debug(f"✅ State saved for {repo['name']}")
+                    self._safe_display('debug', f"✅ State saved for {repo['name']}")
             except Exception as e:
-                self._safe_display_error(f"⚠️  Warning: Could not save state for {repo['name']}: {e}")
+                self._safe_display('error', f"⚠️  Warning: Could not save state for {repo['name']}: {e}")
     
-    def _safe_display_error(self, message):
-        """Thread-safe error display"""
-        self._display_queue.put(lambda: print(message))
     
-    def _safe_display_debug(self, message):
-        """Thread-safe debug display"""
-        self._display_queue.put(lambda: print(message))
-    
-    def _safe_display_news_summary(self, repo_name, summary, cost_info, show_costs, repo_url, version, branch_name, timestamp, commit_count=None):
-        """Thread-safe news summary display"""
-        self._display_queue.put(lambda: self.display.display_news_summary(
-            repo_name, summary, cost_info, show_costs, repo_url, version, branch_name, timestamp, commit_count
-        ))
-    
-    def _safe_display_branch_summary(self, branch_name, commits_ahead, summary, cost_info, show_costs, is_default, timestamp):
-        """Thread-safe branch summary display"""
-        self._display_queue.put(lambda: self.display.display_branch_summary(
-            branch_name, commits_ahead, summary, cost_info, show_costs, is_default, timestamp
-        ))
-    
-    def _safe_display_fork_summary(self, repo_name, fork_name, fork_url, commits_ahead, summary, branches, timestamp):
-        """Thread-safe fork summary display"""
-        self._display_queue.put(lambda: self.display.display_fork_summary(
-            repo_name, fork_name, fork_url, commits_ahead, summary, branches, timestamp
-        ))
-    
-    def _safe_display_loading(self, message):
-        """Thread-safe loading message display"""
-        self._display_queue.put(lambda: self.display.display_loading(message))
-    
-    def _safe_display_no_updates(self, repo_name):
-        """Thread-safe no updates display"""
-        self._display_queue.put(lambda: self.display.display_no_updates(repo_name))
-    
-    def _safe_display_forks_header(self, repo_name, repo_url):
-        """Thread-safe forks header display"""
-        self._display_queue.put(lambda: self.display.display_forks_header(repo_name, repo_url))
-    
-    def _safe_display_forks_summary(self, repo_name, active_count, total_count, cost_info, show_costs, repo_url):
-        """Thread-safe forks summary display"""
-        self._display_queue.put(lambda: self.display.display_forks_summary(
-            repo_name, active_count, total_count, cost_info, show_costs, repo_url
-        ))
-    
-    def _safe_display_no_active_forks(self, repo_name):
-        """Thread-safe no active forks display"""
-        self._display_queue.put(lambda: self.display.display_no_active_forks(repo_name))
-    
-    def _safe_display_no_fork_changes(self, repo_name):
-        """Thread-safe no fork changes display"""
-        self._display_queue.put(lambda: self.display.display_no_fork_changes(repo_name))
-    
-    @abstractmethod
     def _process_repository(self, repo):
-        """Subclass-specific repository processing logic"""
-        pass
+        """Subclass-specific repository processing logic (override in subclasses)"""
+        raise NotImplementedError("Subclasses must implement _process_repository method")

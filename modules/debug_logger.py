@@ -3,13 +3,10 @@ class DebugLogger:
     
     def __init__(self, config_manager):
         self.config_manager = config_manager
-        self._debug_enabled = None
     
     def _is_debug_enabled(self):
-        """Check if debug is enabled (cached for performance)"""
-        if self._debug_enabled is None:
-            self._debug_enabled = self.config_manager.get_boolean_setting('debug')
-        return self._debug_enabled
+        """Check if debug is enabled"""
+        return self.config_manager.get_boolean_setting('debug')
     
     def debug(self, message):
         """Print debug message if debug mode is enabled"""

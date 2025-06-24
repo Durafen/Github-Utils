@@ -1,6 +1,5 @@
 import os
 from .ai_provider import create_ai_provider
-from .prompt_manager import PromptManager
 from .display import get_terminal_width
 
 
@@ -8,16 +7,73 @@ class SummaryGenerator:
     def __init__(self, config_manager, template_name='summary'):
         self.config_manager = config_manager
         self.ai_provider = create_ai_provider(config_manager)
-        self.prompt_manager = PromptManager(template_name)
+        self.template_name = template_name
     
     def generate_summary(self, repo_data):
         """Generate summary using configured AI provider"""
         prompt = self._build_prompt(repo_data)
         result = self.ai_provider.generate_summary(prompt)
         return result
+
+    def _get_news_template(self):
+        """News/commits summary template"""
+        return """
+        
+Summarize recent activity for {repo_name} repository:
+
+{commits_section}
+
+{releases_section}
+
+{branches_section}
+
+Please provide a concise summary up {bullet_count} bullet points highlighting the major changes and updates.
+Focus on the most important features, bug fixes, and improvements, what adds value to user.
+Don't repeat yourself, summarize, if you don't have anything new to add, don't add.
+Up to 15 words per bullet.
+Sort the bullets, so first will be the major changes and news.
+Don't include version numbers (unless it major version update).
+
+If branch analysis is included, highlight cross-branch development patterns and significant feature branches.
+
+IMPORTANT: This output will be displayed in a terminal, no markdown formatting.
+Do not add a title, headline - start directly with the bullet points. Do not include the 🤖 emoji or any other leading text.
+
+
+"""
+
+    def _get_fork_template(self):
+        """Fork analysis template"""
+        return """
+        
+You are analyzing GitHub repository forks with multi-branch analysis to gather whats new in this fork vs original repository.
+
+Repository: {repo_name}
+Fork: {fork_name} ({fork_url})
+Total commits ahead: {commits_ahead}
+Branches analyzed: {total_branches_analyzed}
+
+{branches_section}
+
+Please provide a concise summary up {bullet_count} bullet points highlighting the major changes and updates of this branch vs original repository.
+Focus on the most important features, bug fixes, and improvements, what adds value to user.
+Don't repeat yourself, summarize, if you don't have anything new to add, don't add.
+Up to 15 words per bullet.
+Sort the bullets, so first will be the major changes and news.
+Don't include version numbers (unless it major version update).
+If there are no changes in readme, don't mention it, mention only what new features.
+Don't speak about how many commits ahead, user already saw it.
+Don't make up things, use the Branch Analysis  (Parent repository README is for context, not for news).
+
+Focus on practical value and multi-branch development patterns. Output plain text without markdown formatting for terminal display.
+
+(For context only about the original repository, not news) Parent repository README:
+{parent_readme}
+
+"""
     
     def _build_prompt(self, repo_data):
-        """Build prompt using PromptManager"""
+        """Build prompt using inline templates"""
         debug_mode = self.config_manager.get_boolean_setting('debug')
         
         # Check if this is a fork analysis or regular summary
@@ -28,7 +84,8 @@ class SummaryGenerator:
             # Build branches section for multi-branch analysis
             branches_section = self._build_branches_section(repo_data.get('branches', []))
             
-            prompt = self.prompt_manager.build_prompt(
+            template = self._get_fork_template()
+            prompt = template.format(
                 repo_name=repo_data['name'],
                 fork_name=repo_data['fork_name'],
                 fork_url=repo_data['fork_url'],
@@ -59,7 +116,8 @@ class SummaryGenerator:
             else:
                 bullet_count = self.config_manager.get_setting('main_summary_bullets', '5-10')
             
-            prompt = self.prompt_manager.build_prompt(
+            template = self._get_news_template()
+            prompt = template.format(
                 repo_name=repo_data['name'],
                 commits_section=commits_section,
                 releases_section=releases_section,

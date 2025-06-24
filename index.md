@@ -16,39 +16,39 @@
 - **modules/parallel_base_processor.py**: `ParallelBaseProcessor`
   - **Thread-safe base class** for all repository processors
   - **4-worker ThreadPoolExecutor** with configurable `max_workers`
-  - **Display queue system** (`_display_queue`) for ordered, race-condition-free output
+  - **Simple locking system** with `threading.Lock()` for ordered, race-condition-free output
   - **Per-repository locking** (`_repo_locks`) prevents state corruption
   - **Global state lock** (`_state_lock`) synchronizes state file operations
-  - **Thread-safe display methods**: `_safe_display_*()` variants
+  - **Generic thread-safe display**: `_safe_display(method_name, *args)` wrapper
   - **Incremental state saving** per repository completion
-  - Key methods: `execute()`, `_process_repository_safe()`, `_display_worker()`
-  - Abstract properties: `state_type` for state file management
+  - Key methods: `execute()`, `_process_repository_safe()`, `_safe_display()`
+  - **Simple inheritance**: No ABC overhead, just NotImplementedError for abstract methods
   - **Performance**: 7 repositories ~90s sequential → ~38s parallel
 
-### Shared Logic Mixin
-- **modules/repository_mixin.py**: `RepositoryProcessorMixin`
-  - Shared GitHub data processing logic
-  - Methods: `extract_repo_info()`, `has_newer_releases()`, `should_process_repository()`
+### Shared Repository Utilities
+- **modules/repo_utils.py**: `RepoUtils`
+  - Static utility functions for GitHub data processing
+  - Methods: `extract_repo_info()`, `has_newer_commits()`, `has_newer_releases()`
   - URL parsing and state comparison utilities
   - Cross-repository and fork-aware comparison logic
 
 ### Concrete Processors
 - **modules/news_processor.py**: `NewsProcessor`
-  - Inherits from **ParallelBaseProcessor** + RepositoryProcessorMixin
+  - Inherits from **ParallelBaseProcessor**, uses `RepoUtils` static methods
   - Key method: `_process_repository()` - handles commits/releases + individual branches
   - `_analyze_individual_branches()` - processes non-default branches separately
   - `_process_selective_branches()` - optimized branch subset processing
-  - **State management** for both main branch and individual branches
-  - **Thread-safe display calls**: All `self.display.*` → `self._safe_display_*`
+  - **State management** via `StateManager` centralized methods
+  - **Thread-safe display calls**: All use `self._safe_display(method_name, *args)`
   - **Early-exit optimization** with `StateManager.main_branch_unchanged()`
 
 - **modules/forks_processor.py**: `ForksProcessor`
-  - Inherits from **ParallelBaseProcessor** + RepositoryProcessorMixin
+  - Inherits from **ParallelBaseProcessor**, uses `RepoUtils` static methods
   - Key method: `_process_repository()` - analyzes repository forks
   - **Multi-branch fork analysis** with `_process_fork_branches()`
-  - **Smart fork filtering** with `_should_process_fork_by_state()`
+  - **Centralized state checking** via `StateManager.should_process_fork_by_state()`
   - **README comparison** for enhanced fork insights
-  - **Thread-safe display calls**: All fork display operations queued
+  - **Thread-safe display calls**: All use generic `_safe_display()` wrapper
   - **State optimization** with lightweight fork pre-filtering
 
 ### GitHub Integration
@@ -152,6 +152,68 @@
   - Used by ConfigManager for repository modifications
 
 ## Module Organization
+### Core Module Functions and Settings
+
+**modules/parallel_base_processor.py**: `ParallelBaseProcessor`
+- `__init__(template_name, repositories)` - Initialize with AI template and repo list
+- `execute()` - Main parallel processing entry point
+- `_process_repository_safe(repo)` - Thread-safe repo processing wrapper
+- `_safe_display(method_name, *args)` - Generic thread-safe display wrapper
+- `state_type` property - Returns 'news' or 'forks' for state management
+
+**modules/news_processor.py**: `NewsProcessor`
+- `_process_repository(repo)` - Main news processing logic
+- `_analyze_individual_branches()` - Branch-specific analysis
+- `_process_selective_branches()` - Optimized branch subset processing
+- `_should_process_branch()` - State-based branch filtering
+
+**modules/forks_processor.py**: `ForksProcessor`
+- `_process_repository(repo)` - Main fork analysis logic
+- `_process_fork_branches()` - Multi-branch fork analysis
+- `_should_process_fork_by_state()` - Lightweight fork pre-filtering
+- `_prioritize_branches()` - Branch prioritization for analysis
+
+**modules/github_fetcher.py**: `GitHubFetcher`
+- `get_commits(owner, repo, limit)` - Fetch recent commits
+- `get_releases(owner, repo, limit)` - Fetch recent releases
+- `get_forks(owner, repo, limit)` - Fetch repository forks
+- `get_branch_comparison(owner, repo, base, head)` - Compare branches
+- `get_current_main_sha(owner, repo)` - Get main branch SHA for optimization
+- `_setup_token_cache()` - Performance optimization for GitHub CLI
+
+**modules/config_manager.py**: `ConfigManager`
+- `get_setting(key, default)` - Get configuration value
+- `get_boolean_setting(key, default)` - Get boolean configuration
+- `get_int_setting(key, default)` - Get integer configuration
+- `get_show_costs_setting()` - Cost display preference
+- `load_repositories()` - Load repository list from config
+- `save_state(state, state_type)` - Persist processor state
+
+**modules/state_manager.py**: `StateManager` (Static Methods)
+- `main_branch_unchanged(state, repo_key, current_sha)` - Early-exit optimization
+- `needs_repository_processing(state, repo_key, main_sha, branch_shas)` - Branch change detection
+- `should_process_branch_by_state(state, repo_key, branch_name, commits, enabled)` - Branch processing logic
+- `should_process_fork_by_state(state, repo_key, fork_name, branches, enabled)` - Fork processing logic
+- `update_branch_state(state, repo_key, branch_name, commits, count)` - Branch state persistence
+- `update_fork_state(state, repo_key, fork_info)` - Fork state persistence
+
+**modules/repo_utils.py**: `RepoUtils` (Static Methods)
+- `extract_repo_info(url, fetcher)` - Parse GitHub URL into owner/repo/key
+- `has_newer_commits(commits, last_commit)` - Check for new commits
+- `has_newer_releases(releases, last_release)` - Check for new releases
+
+**modules/summary_generator.py**: `SummaryGenerator`
+- `generate_summary(repo_data)` - Generate AI summary with cost tracking
+- `_build_prompt(repo_data)` - Build template-based prompts
+
+**modules/display.py**: `TerminalDisplay`
+- `display_news_summary()` - Main repository summary display
+- `display_branch_summary()` - Individual branch summary display
+- `display_fork_summary()` - Fork analysis results display
+- `display_forks_header()`, `display_forks_summary()` - Fork section headers
+- `display_no_updates()`, `display_error()` - Status message display
+
+### Package Structure
 - **modules/__init__.py**: Package initialization (minimal)
 - All modules use relative imports within the package
 - No external dependencies in core modules (except optional openai)
@@ -174,10 +236,11 @@
 **[settings] section:**
 - **General**: `save_state=true`, `debug=false`, `show_costs=false`
 - **News**: `max_commits=50`, `max_releases=10`, `max_branches_per_repo=5`
-- **Branches**: `min_branch_commits=1`, `analyze_default_branch=false`
-- **Forks**: `max_forks=200`, `min_commits_ahead=1`, `exclude_private_forks=false`
-- **Parallel**: `max_workers=4`, `repo_timeout=60` - **NEW: parallel processing configuration**
-- **API**: `timeout=30` - GitHub API timeout in seconds
+- **Branches**: `min_branch_commits=1`, `analyze_default_branch=false`, `branch_activity_days=30`
+- **Summaries**: `main_summary_bullets=5-10`, `branch_summary_bullets=2-5`
+- **Forks**: `max_forks=200`, `min_commits_ahead=1`, `max_branches_per_fork=5`, `analyze_default_branch_always=true`
+- **Parallel**: `max_workers=4`, `repo_timeout=60` - **Parallel processing configuration**
+- **API**: `timeout=30` - GitHub API and AI provider timeout in seconds
 
 ### Prompt Templates (prompts/)
 - **summary_prompt.txt**: News/commits summary template
@@ -187,8 +250,10 @@
 ### Debug and Analysis Files
 - **debug_prompts/**: AI prompt debugging output (timestamp-named files)
 - **test_reports/**: Test framework execution reports
-- **optimization.md**, **parallel_analysis.md**, **state_analysis.md**: Performance analysis
+- **optimization.md**: Performance optimization analysis and benchmarks
 - **workers.md**: Parallel processing implementation specification
+- **state_files/**: JSON state persistence files (news_state.json, forks_state.json)
+- **.claude-trace/**: Claude CLI trace files for debugging
 
 ### Other Project Files
 - **.gitignore**: Excludes config.txt, state files, __pycache__, .DS_Store

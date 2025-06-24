@@ -1,18 +1,16 @@
 from .parallel_base_processor import ParallelBaseProcessor
-from .repository_mixin import RepositoryProcessorMixin
+from .repo_utils import RepoUtils
 from .debug_logger import DebugLogger
-from .cost_tracker import CostTracker
 from .commit_utils import filter_commits_since_last_processed
 from .state_manager import StateManager
 from datetime import datetime
 
-class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
+class ForksProcessor(ParallelBaseProcessor):
     """Processor for fork analysis (forks ahead of parent)"""
     
     def __init__(self, repositories=None):
         super().__init__(template_name='fork_summary', repositories=repositories)
         self.debug_logger = DebugLogger(self.config_manager)
-        self.cost_tracker = CostTracker()
     
     @property
     def state_type(self):
@@ -21,9 +19,9 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
     def _process_repository(self, repo):
         """Process repository for active forks ahead of parent"""
         # Reset cost tracking at start of each repository
-        self.cost_tracker.reset()
+        self.generator.ai_provider.reset()
         
-        owner, repo_name, repo_key = self.extract_repo_info(repo['url'])
+        owner, repo_name, repo_key = RepoUtils.extract_repo_info(repo['url'], self.fetcher)
         
         # Get configuration limits
         max_forks = self.config_manager.get_int_setting('max_forks', 20)
@@ -44,12 +42,12 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             
             # Get parent repository README once at start
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_loading(f"Fetching parent README for {repo['name']}...")
+                self._safe_display('display_loading',f"Fetching parent README for {repo['name']}...")
             parent_readme = self.fetcher.get_readme(owner, repo_name)
             
             # Get forks for this repository
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_loading(f"Checking forks for {repo['name']}...")
+                self._safe_display('display_loading',f"Checking forks for {repo['name']}...")
             forks = self.fetcher.get_forks(owner, repo_name, limit=max_forks)
             
             # Debug output
@@ -58,13 +56,13 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             
             if not forks:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self._safe_display_no_active_forks(repo['name'])
+                    self._safe_display('display_no_active_forks',repo['name'])
                 # Display summary even when no forks found
-                self._safe_display_forks_summary(
+                self._safe_display('display_forks_summary',
                     repo['name'],
                     0,  # active_count
                     0,  # total_count
-                    self.cost_tracker.get_total_cost_info(),
+                    self.generator.ai_provider.get_total_cost_info(),
                     self.config_manager.get_show_costs_setting(),
                     repo.get('url')
                 )
@@ -88,11 +86,11 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             
             if not forks_to_process:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self._safe_display_no_fork_changes(repo['name'])
+                    self._safe_display('display_no_fork_changes',repo['name'])
                 # Display summary even when no forks need processing
-                self._safe_display_forks_summary(
+                self._safe_display('display_forks_summary',
                     repo['name'], 0, len(current_forks), 
-                    self.cost_tracker.get_total_cost_info(),
+                    self.generator.ai_provider.get_total_cost_info(),
                     self.config_manager.get_show_costs_setting(),
                     repo.get('url')
                 )
@@ -104,44 +102,42 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             # Show message if no forks found after processing all
             if not ahead_forks:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self._safe_display_no_active_forks(repo['name'])
+                    self._safe_display('display_no_active_forks',repo['name'])
             
             # Display repository-level fork summary
-            self._safe_display_forks_summary(
+            self._safe_display('display_forks_summary',
                 repo['name'],
                 len(ahead_forks),
                 len(current_forks),
-                self.cost_tracker.get_total_cost_info(),
+                self.generator.ai_provider.get_total_cost_info(),
                 show_costs,
                 repo.get('url')
             )
                 
         except Exception as e:
             if "404" in str(e):
-                self._safe_display_error(f"Repository {repo['name']} not found or not accessible")
+                self._safe_display('error',f"Repository {repo['name']} not found or not accessible")
             else:
                 raise
     
     def _should_process_fork(self, repo_key, fork_name, fork_commits):
         """Check if fork needs processing based on saved state"""
-        if not self.config_manager.get_boolean_setting('save_state', 'true'):
+        save_state_enabled = self.config_manager.get_boolean_setting('save_state', 'true')
+        if not save_state_enabled:
             return True
             
-        repo_state = self.state.get(repo_key, {})
-        processed_forks = repo_state.get('processed_forks', {})
-        
-        if fork_name not in processed_forks:
-            return True
-            
-        # Compare latest commit with saved state
         if not fork_commits:
             return False
             
-        current_latest_commit = fork_commits[0]['sha'] if fork_commits else None
-        saved_latest_commit = processed_forks[fork_name].get('last_ahead_commit')
+        # Convert commits to branch analysis format for StateManager
+        branch_analysis = [{
+            'branch_name': 'main',  # Default branch for simple fork check
+            'commits': fork_commits
+        }]
         
-        # Process if commits have changed
-        return current_latest_commit != saved_latest_commit
+        return StateManager.should_process_fork_by_state(
+            self.state, repo_key, fork_name, branch_analysis, save_state_enabled
+        )
 
     def _update_fork_state(self, repo_key, fork_info):
         """Update state tracking for processed forks with multi-branch support"""
@@ -169,13 +165,13 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         
         # Get all branches for this fork
         if self.config_manager.get_boolean_setting('debug'):
-            self._safe_display_loading(f"Analyzing branches for {fork_owner}/{fork_name}...")
+            self._safe_display('display_loading',f"Analyzing branches for {fork_owner}/{fork_name}...")
             
         fork_branches = self.fetcher.get_fork_branches(fork_owner, fork_name)
         
         if not fork_branches:
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_loading(f"No branches found for {fork_owner}/{fork_name}")
+                self._safe_display('display_loading',f"No branches found for {fork_owner}/{fork_name}")
             return None
         
         # Debug output
@@ -257,19 +253,19 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                 # Get latest commit timestamp for this specific branch
                 try:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self._safe_display_loading(f"Fetching timestamp for {fork_owner}/{fork_name}:{branch_name}")
+                        self._safe_display('display_loading',f"Fetching timestamp for {fork_owner}/{fork_name}:{branch_name}")
                     branch_timestamp = self.fetcher.get_latest_commit_timestamp(fork_owner, fork_name, branch_name)
                     if self.config_manager.get_boolean_setting('debug'):
-                        self._safe_display_loading(f"Got timestamp: {branch_timestamp}")
+                        self._safe_display('display_loading',f"Got timestamp: {branch_timestamp}")
                 except Exception as e:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self._safe_display_loading(f"Timestamp fetch failed for {fork_owner}/{fork_name}:{branch_name} - {e}")
+                        self._safe_display('display_loading',f"Timestamp fetch failed for {fork_owner}/{fork_name}:{branch_name} - {e}")
                     branch_timestamp = None
                 
                 # Check README modifications for this branch
                 if self.fetcher.readme_was_modified(comparison) and fork_readme is None:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self._safe_display_loading(f"README modified in {branch_name}, fetching...")
+                        self._safe_display('display_loading',f"README modified in {branch_name}, fetching...")
                     fork_readme = self.fetcher.get_readme(fork_owner, fork_name)
                 
                 # Use filtered commit count for accurate AI context
@@ -327,9 +323,10 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         
         # Check if this fork needs processing based on state
         fork_name_full = f"{fork_owner}/{fork_name}"
-        if not self._should_process_fork_multi_branch(repo_key, fork_name_full, branch_analyses):
+        save_state_enabled = self.config_manager.get_boolean_setting('save_state', True)
+        if not StateManager.should_process_fork_by_state(self.state, repo_key, fork_name_full, branch_analyses, save_state_enabled):
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_debug(f"Skipping {fork_name_full} - no new commits across branches")
+                self._safe_display('debug',f"Skipping {fork_name_full} - no new commits across branches")
             return None
         
         # Sort all commits by most recent for AI context
@@ -363,17 +360,17 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
 
     def _should_process_fork_by_state(self, repo_key, fork_full_name, fork_basic_info):
         """Quick check if fork needs processing based on lightweight state comparison"""
-        if not self.config_manager.get_boolean_setting('save_state', True):
+        save_state_enabled = self.config_manager.get_boolean_setting('save_state', True)
+        if not save_state_enabled:
             return True
             
+        # For lightweight check without full branch analysis, use timestamp comparison
         repo_state = self.state.get(repo_key, {})
         processed_forks = repo_state.get('processed_forks', {})
         
         if fork_full_name not in processed_forks:
             return True  # New fork
         
-        # For lightweight check, we can't compare all branches here
-        # So we'll do a quick updated_at timestamp check if available
         fork_last_update = fork_basic_info.get('updated_at')
         if not fork_last_update:
             return True  # Process if we can't determine last update
@@ -385,7 +382,7 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         if not last_check:
             return True  # Process if no previous check
         
-        # Quick timestamp comparison (not perfect but good enough for early filtering)
+        # Quick timestamp comparison (simplified version)
         try:
             from datetime import datetime
             fork_update_time = datetime.fromisoformat(fork_last_update.replace('Z', '+00:00'))
@@ -417,7 +414,7 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                 
                 # Display header only once when first fork is found
                 if not header_displayed:
-                    self._safe_display_forks_header(repo['name'], repo.get('url'))
+                    self._safe_display('display_forks_header',repo['name'], repo.get('url'))
                     header_displayed = True
                 
                 # Process fork immediately for AI summary
@@ -445,12 +442,10 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                     result = self.generator.generate_summary(fork_data)
                     summary = result['summary']
                     
-                    # Track cost for this fork
-                    if result.get('cost_info'):
-                        self.cost_tracker.add_cost(result['cost_info'])
+                    # Cost is already tracked by the AI provider during generation
                     
                     # Display fork analysis
-                    self._safe_display_fork_summary(
+                    self._safe_display('display_fork_summary',
                         repo['name'], 
                         fork_info['fork_name'],
                         f"https://github.com/{fork_info['fork_name']}",
@@ -465,10 +460,10 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                     
                 except Exception as e:
                     # Always log critical errors, not just in debug mode
-                    self._safe_display_error(f"❌ Summary generation failed for {fork_info['fork_name']}: {e}")
+                    self._safe_display('error',f"❌ Summary generation failed for {fork_info['fork_name']}: {e}")
                     if self.config_manager.get_boolean_setting('debug'):
                         import traceback
-                        self._safe_display_error(f"Full traceback: {traceback.format_exc()}")
+                        self._safe_display('error',f"Full traceback: {traceback.format_exc()}")
         
         return ahead_forks
     
@@ -504,9 +499,3 @@ class ForksProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         # Limit to max_branches
         return sorted_branches[:max_branches]
     
-    def _should_process_fork_multi_branch(self, repo_key, fork_name, branch_analyses):
-        """Check if multi-branch fork needs processing based on saved state"""
-        save_state_enabled = self.config_manager.get_boolean_setting('save_state', True)
-        return StateManager.should_process_fork_by_state(
-            self.state, repo_key, fork_name, branch_analyses, save_state_enabled
-        )

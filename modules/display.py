@@ -1,7 +1,7 @@
 import sys
 import shutil
 from datetime import datetime, timezone
-from .cost_tracker import CostTracker
+# CostTracker is now integrated into AI providers
 
 
 def get_terminal_width():
@@ -48,7 +48,8 @@ def format_time_ago(timestamp_str):
 
 class TerminalDisplay:
     def __init__(self):
-        self.cost_tracker = CostTracker()
+        # Cost tracking is now handled by AI providers
+        pass
     
     def _get_separator_width(self, max_width=80):
         """Get terminal width, capped at max_width"""
@@ -68,7 +69,16 @@ class TerminalDisplay:
     
     def _format_cost_info(self, cost_info):
         """Format cost information for display"""
-        return self.cost_tracker.format_cost_info(cost_info)
+        if not cost_info or cost_info.get('estimated_cost', 0) == 0:
+            return ""
+        
+        cost = cost_info['estimated_cost']
+        tokens = cost_info.get('total_tokens', 0)
+        
+        if cost < 0.001:
+            return f"($<0.001, {tokens} tokens)"
+        else:
+            return f"(${cost:.3f}, {tokens} tokens)"
     
     def _build_base_title(self, repo_name, repo_url, title_prefix="📊", title_suffix="Summary"):
         """Build base title with clickable hyperlink if URL provided"""

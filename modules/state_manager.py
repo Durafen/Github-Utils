@@ -250,3 +250,89 @@ class StateManager:
         saved_main_sha = repo_state.get('last_commit')
         return saved_main_sha == current_main_sha
 
+    @staticmethod
+    def get_repository_state(state, repo_key):
+        """Get repository state with defaults"""
+        return state.get(repo_key, {})
+    
+    @staticmethod  
+    def get_fork_state(state, repo_key, fork_name):
+        """Get fork state with defaults"""
+        repo_state = StateManager.get_repository_state(state, repo_key)
+        processed_forks = repo_state.get('processed_forks', {})
+        return processed_forks.get(fork_name, {})
+    
+    @staticmethod
+    def get_branch_state(state, repo_key, branch_name, is_fork=False, fork_name=None):
+        """Get branch state with defaults"""
+        if is_fork and fork_name:
+            fork_state = StateManager.get_fork_state(state, repo_key, fork_name)
+            branches = fork_state.get('branches', {})
+            return branches.get(branch_name, {})
+        else:
+            repo_state = StateManager.get_repository_state(state, repo_key)
+            branches = repo_state.get('branches', {})
+            return branches.get(branch_name, {})
+
+    @staticmethod
+    def should_process_repository(state, repo_key, repo_type, current_sha=None, current_release=None, save_state_enabled=True):
+        """Unified repository processing decision"""
+        if not save_state_enabled:
+            return True
+            
+        repo_state = StateManager.get_repository_state(state, repo_key)
+        
+        # Check main branch SHA if provided
+        if current_sha:
+            saved_sha = repo_state.get('last_commit')
+            if saved_sha != current_sha:
+                return True
+        
+        # Check release if provided  
+        if current_release:
+            saved_release = repo_state.get('last_release')
+            if str(saved_release) != str(current_release):
+                return True
+                
+        # If no changes found and we have state, skip
+        return not repo_state  # Process if no previous state
+
+    @staticmethod
+    def should_process_fork(state, repo_key, fork_name, current_ahead_sha=None, save_state_enabled=True):
+        """Unified fork processing decision"""
+        if not save_state_enabled:
+            return True
+            
+        fork_state = StateManager.get_fork_state(state, repo_key, fork_name)
+        if not fork_state:
+            return True  # New fork
+            
+        if current_ahead_sha:
+            # Check if any branch has new commits (simplified check)
+            branches = fork_state.get('branches', {})
+            for branch_name, branch_state in branches.items():
+                saved_sha = branch_state.get('last_ahead_commit')
+                if saved_sha != current_ahead_sha:
+                    return True
+                    
+        return False  # No changes found
+
+    @staticmethod
+    def should_process_branch(state, repo_key, branch_name, current_sha=None, save_state_enabled=True, is_fork=False, fork_name=None):
+        """Unified branch processing decision"""
+        if not save_state_enabled:
+            return True
+            
+        branch_state = StateManager.get_branch_state(state, repo_key, branch_name, is_fork, fork_name)
+        if not branch_state:
+            return True  # New branch
+            
+        if current_sha:
+            if is_fork:
+                saved_sha = branch_state.get('last_ahead_commit')
+            else:
+                saved_sha = branch_state.get('last_commit')
+            return saved_sha != current_sha
+            
+        return False  # No current SHA provided
+

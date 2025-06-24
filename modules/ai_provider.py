@@ -1,25 +1,19 @@
-from abc import ABC, abstractmethod
 import subprocess
 import json
 import re
 from .debug_logger import DebugLogger
 
 
-class AIProvider(ABC):
-    @abstractmethod
-    def generate_summary(self, prompt: str) -> dict:
-        """Generate a summary from the given prompt
-        Returns: dict with 'summary' and 'cost_info' keys
-        """
-        pass
-
-
-class ClaudeCLIProvider(AIProvider):
+class ClaudeCLIProvider:
     def __init__(self, config_manager):
         self.config_manager = config_manager
         self.debug_logger = DebugLogger(config_manager)
         claude_path = config_manager.get_claude_cli_path()
         self.claude_cmd = [claude_path, "--print", "--output-format", "stream-json", "--verbose"]
+        
+        # Integrated cost tracking
+        self.total_cost = 0.0
+        self.total_tokens = {'input': 0, 'output': 0}
     
     def generate_summary(self, prompt: str) -> dict:
         """Generate summary using Claude CLI"""
@@ -66,10 +60,47 @@ class ClaudeCLIProvider(AIProvider):
             'provider': 'Claude CLI (estimated)'
         }
         
+        # Track usage
+        self.track_usage(input_tokens, output_tokens)
+        
         return {
             'summary': summary,
             'cost_info': cost_info
         }
+    
+    def track_usage(self, input_tokens, output_tokens):
+        """Integrated cost tracking"""
+        self.total_tokens['input'] += input_tokens
+        self.total_tokens['output'] += output_tokens
+        # Claude Sonnet 4 pricing: $3/$15 per MTok
+        input_cost = input_tokens * 3 / 1_000_000
+        output_cost = output_tokens * 15 / 1_000_000
+        self.total_cost += input_cost + output_cost
+    
+    def format_cost_info(self, cost_info):
+        """Format cost information for display"""
+        if not cost_info or cost_info.get('estimated_cost', 0) == 0:
+            return ""
+        
+        cost = cost_info['estimated_cost']
+        tokens = cost_info.get('total_tokens', 0)
+        
+        if cost < 0.001:
+            return f"($<0.001, {tokens} tokens)"
+        else:
+            return f"(${cost:.3f}, {tokens} tokens)"
+    
+    def get_total_cost_info(self):
+        """Get total cost information as dict"""
+        return {
+            'estimated_cost': self.total_cost,
+            'total_tokens': self.total_tokens['input'] + self.total_tokens['output']
+        }
+    
+    def reset(self):
+        """Reset cost tracking"""
+        self.total_cost = 0.0
+        self.total_tokens = {'input': 0, 'output': 0}
     
     def _call_claude(self, prompt):
         """Execute Claude CLI with subprocess using piped input"""
@@ -176,13 +207,17 @@ class ClaudeCLIProvider(AIProvider):
         return text
 
 
-class OpenAIProvider(AIProvider):
+class OpenAIProvider:
     def __init__(self, config_manager):
         self.config_manager = config_manager
         self.debug_logger = DebugLogger(config_manager)
         self.api_key = config_manager.get_openai_api_key()
         self.model = config_manager.get_ai_model() or 'gpt-4o'
         self.timeout = config_manager.get_ai_timeout()
+        
+        # Integrated cost tracking
+        self.total_cost = 0.0
+        self.total_tokens = {'input': 0, 'output': 0}
         
         if not self.api_key:
             raise ValueError(
@@ -234,6 +269,9 @@ class OpenAIProvider(AIProvider):
             # Calculate actual cost using real token usage
             cost_info = self._calculate_openai_cost(response, self.model)
             
+            # Track usage
+            self.track_usage(cost_info['input_tokens'], cost_info['output_tokens'])
+            
             self.debug_logger.debug(f"OpenAI response length: {len(result)} characters")
             self.debug_logger.debug_tokens(cost_info['total_tokens'], cost_info['estimated_cost'])
             
@@ -253,6 +291,48 @@ class OpenAIProvider(AIProvider):
                 'summary': f"Error calling OpenAI API: {str(e)}",
                 'cost_info': {'estimated_cost': 0, 'provider': 'OpenAI (error)', 'total_tokens': 0}
             }
+    
+    def track_usage(self, input_tokens, output_tokens):
+        """Integrated cost tracking"""
+        self.total_tokens['input'] += input_tokens
+        self.total_tokens['output'] += output_tokens
+        
+        # Calculate cost based on model
+        pricing = {
+            'gpt-4o': {'input': 3.00, 'output': 10.00},
+            'gpt-4o-mini': {'input': 0.15, 'output': 0.60},
+            'gpt-4': {'input': 30.00, 'output': 60.00},
+            'gpt-3.5-turbo': {'input': 0.50, 'output': 1.50}
+        }
+        model_pricing = pricing.get(self.model, pricing['gpt-4o-mini'])
+        input_cost = input_tokens * model_pricing['input'] / 1_000_000
+        output_cost = output_tokens * model_pricing['output'] / 1_000_000
+        self.total_cost += input_cost + output_cost
+    
+    def format_cost_info(self, cost_info):
+        """Format cost information for display"""
+        if not cost_info or cost_info.get('estimated_cost', 0) == 0:
+            return ""
+        
+        cost = cost_info['estimated_cost']
+        tokens = cost_info.get('total_tokens', 0)
+        
+        if cost < 0.001:
+            return f"($<0.001, {tokens} tokens)"
+        else:
+            return f"(${cost:.3f}, {tokens} tokens)"
+    
+    def get_total_cost_info(self):
+        """Get total cost information as dict"""
+        return {
+            'estimated_cost': self.total_cost,
+            'total_tokens': self.total_tokens['input'] + self.total_tokens['output']
+        }
+    
+    def reset(self):
+        """Reset cost tracking"""
+        self.total_cost = 0.0
+        self.total_tokens = {'input': 0, 'output': 0}
     
     def _calculate_openai_cost(self, response, model):
         """Calculate cost based on OpenAI pricing"""
@@ -283,7 +363,7 @@ class OpenAIProvider(AIProvider):
         }
 
 
-def create_ai_provider(config_manager) -> AIProvider:
+def create_ai_provider(config_manager):
     """Factory function to create AI provider based on configuration"""
     provider_type = config_manager.get_ai_provider()
     

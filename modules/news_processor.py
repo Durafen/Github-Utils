@@ -1,10 +1,10 @@
 from .parallel_base_processor import ParallelBaseProcessor
-from .repository_mixin import RepositoryProcessorMixin
+from .repo_utils import RepoUtils
 from .commit_utils import filter_commits_since_last_processed
 from .state_manager import StateManager
 from datetime import datetime
 
-class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
+class NewsProcessor(ParallelBaseProcessor):
     """Processor for news summaries (commits and releases)"""
     
     def __init__(self, repositories=None):
@@ -16,13 +16,13 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
     
     def _process_repository(self, repo):
         """Optimized repository processing with early-exit state validation"""
-        owner, repo_name, repo_key = self.extract_repo_info(repo['url'])
+        owner, repo_name, repo_key = RepoUtils.extract_repo_info(repo['url'], self.fetcher)
         
         # PHASE 1: Quick repository state check (early exit optimization)
         current_main_sha = self.fetcher.get_current_main_sha(owner, repo_name)
         if not current_main_sha:
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_error(f"Could not get main branch SHA for {repo['name']}")
+                self._safe_display('error', f"Could not get main branch SHA for {repo['name']}")
             return
         
         # PHASE 2: Early exit if main branch unchanged and save_state enabled
@@ -38,7 +38,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                 
                 if not needs_processing:
                     if self.config_manager.get_boolean_setting('debug'):
-                        self._safe_display_no_updates(repo['name'])
+                        self._safe_display('display_no_updates', repo['name'])
                     return
                 
                 # Process only changed/new branches (selective processing)
@@ -80,7 +80,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             has_newer_commits = len(commits) > 0
         
         releases = self.fetcher.get_releases(owner, repo_name, limit=max_releases)
-        has_newer_releases = self.has_newer_releases(releases, last_release)
+        has_newer_releases = RepoUtils.has_newer_releases(releases, last_release)
         
         # Individual branch analysis
         individual_branches = self._analyze_individual_branches(owner, repo_name, repo_key, default_branch)
@@ -94,7 +94,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         
         if needs_summary:
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_loading(f"Processing {repo['name']}...")
+                self._safe_display('display_loading', f"Processing {repo['name']}...")
             
             show_costs = self.config_manager.get_show_costs_setting()
             version = self.fetcher.get_latest_version(owner, repo_name)
@@ -121,13 +121,13 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                 
                 # Display main repository summary with commit count
                 commit_count = len(commits) if has_newer_commits else 0
-                self._safe_display_news_summary(
+                self._safe_display('display_news_summary',
                     repo['name'], result['summary'], result.get('cost_info'),
                     show_costs, repo['url'], version, None, last_commit_timestamp, commit_count
                 )
             elif has_branch_updates:
                 # Branch-only updates: Display repository headline only (no timestamp for empty summary)
-                self._safe_display_news_summary(
+                self._safe_display('display_news_summary',
                     repo['name'], "", None,
                     False, repo['url'], version, None, None
                 )
@@ -135,12 +135,12 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             # Process individual branch summaries
             for branch_data in individual_branches:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self._safe_display_loading(f"Processing branch {branch_data['branch_name']}...")
+                    self._safe_display('display_loading', f"Processing branch {branch_data['branch_name']}...")
                 
                 result = self.generator.generate_summary(branch_data)
                 
                 # Display individual branch summary
-                self._safe_display_branch_summary(
+                self._safe_display('display_branch_summary',
                     branch_data['branch_name'], 
                     branch_data['commits_ahead'],
                     result['summary'], 
@@ -158,7 +158,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             )
         else:
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_no_updates(repo['name'])
+                self._safe_display('display_no_updates', repo['name'])
 
     def _analyze_individual_branches(self, owner, repo_name, repo_key, default_branch):
         """Analyze repository branches individually for separate summaries"""
@@ -219,7 +219,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
                 if self.config_manager.get_boolean_setting('debug'):
                     is_fork, parent_owner, parent_name = self.fetcher.get_fork_info(owner, repo_name)
                     comparison_type = "cross-repo (fork)" if is_fork else "same-repo"
-                    self._safe_display_loading(f"Branch {branch_name}: {commits_ahead} commits ahead ({comparison_type})")
+                    self._safe_display('display_loading',f"Branch {branch_name}: {commits_ahead} commits ahead ({comparison_type})")
                 
                 if commits_ahead >= min_commits:
                     # Check if needs processing (state-based)
@@ -249,7 +249,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             
         except Exception as e:
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_error(f"Individual branch analysis failed for {repo_name}: {e}")
+                self._safe_display('error',f"Individual branch analysis failed for {repo_name}: {e}")
             return []
 
     def _should_process_branch(self, repo_key, branch_name, branch_commits):
@@ -300,7 +300,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
     def _process_selective_branches(self, repo, owner, repo_name, repo_key, new_branches, changed_branches, current_branch_shas):
         """Process only specific branches that have changed or are new"""
         if self.config_manager.get_boolean_setting('debug'):
-            self._safe_display_loading(f"Processing {len(new_branches)} new, {len(changed_branches)} changed branches for {repo['name']}")
+            self._safe_display('display_loading',f"Processing {len(new_branches)} new, {len(changed_branches)} changed branches for {repo['name']}")
         
         # Get default branch for comparison
         default_branch = self.fetcher.get_default_branch(owner, repo_name)
@@ -310,7 +310,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         
         if not branches_to_process:
             if self.config_manager.get_boolean_setting('debug'):
-                self._safe_display_no_updates(repo['name'])
+                self._safe_display('display_no_updates', repo['name'])
             return
         
         # Process only the subset that needs processing
@@ -319,7 +319,7 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
         if individual_branches:
             # Display repository headline only (no main branch summary)
             version = self.fetcher.get_latest_version(owner, repo_name)
-            self._safe_display_news_summary(
+            self._safe_display('display_news_summary',
                 repo['name'], "", None, False, repo['url'], version, None, None
             )
             
@@ -327,12 +327,12 @@ class NewsProcessor(ParallelBaseProcessor, RepositoryProcessorMixin):
             show_costs = self.config_manager.get_show_costs_setting()
             for branch_data in individual_branches:
                 if self.config_manager.get_boolean_setting('debug'):
-                    self._safe_display_loading(f"Processing branch {branch_data['branch_name']}...")
+                    self._safe_display('display_loading', f"Processing branch {branch_data['branch_name']}...")
                 
                 result = self.generator.generate_summary(branch_data)
                 
                 # Display individual branch summary
-                self._safe_display_branch_summary(
+                self._safe_display('display_branch_summary',
                     branch_data['branch_name'], 
                     branch_data['commits_ahead'],
                     result['summary'], 
