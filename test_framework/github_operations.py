@@ -474,6 +474,22 @@ class GitHubOperations:
             # Perform the actual deletion
             print(f"🗑️  Deleting {len(test_commits_to_delete)} test commits from {repo_name}/{branch}")
             
+            # First, explicitly remove any test files
+            import glob
+            test_files = glob.glob(os.path.join(repo_dir, 'test_*.txt'))
+            if test_files:
+                print(f"🗑️  Removing {len(test_files)} test files: {[os.path.basename(f) for f in test_files]}")
+                for test_file in test_files:
+                    try:
+                        # Remove from filesystem
+                        os.remove(test_file)
+                        # Remove from git index if it was staged
+                        self._run_command(['git', 'rm', '--cached', os.path.basename(test_file)], cwd=repo_dir)
+                    except FileNotFoundError:
+                        pass  # File already deleted
+                    except Exception as e:
+                        print(f"⚠️  Could not remove test file {test_file}: {e}")
+            
             # Reset to the target commit
             reset_result = self._run_command(['git', 'reset', '--hard', reset_to_sha], cwd=repo_dir)
             if reset_result.returncode != 0:
@@ -486,6 +502,13 @@ class GitHubOperations:
                 print(f"❌ Force push failed: {push_result.stderr}")
                 print(f"   Remote may have been updated by someone else")
                 return False
+            
+            # Verify test files are completely removed
+            remaining_test_files = glob.glob(os.path.join(repo_dir, 'test_*.txt'))
+            if remaining_test_files and self.debug:
+                print(f"⚠️  {len(remaining_test_files)} test files still remain: {[os.path.basename(f) for f in remaining_test_files]}")
+            elif self.debug:
+                print(f"✅ All test files successfully removed from {repo_name}/{branch}")
             
             if self.debug:
                 print(f"✅ Successfully deleted {len(test_commits_to_delete)} test commits from {repo_name}/{branch}")
@@ -615,12 +638,13 @@ class GitHubOperations:
             print(f"❌ Selective test commit cleanup failed: {e}")
             return False
 
-    def cleanup_test_artifacts(self, keep_commits: bool = False, clean_commits: bool = False) -> bool:
+    def cleanup_test_artifacts(self, keep_commits: bool = False, clean_commits: bool = False, clean_branches: bool = True) -> bool:
         """Clean up temporary directories, test branches, and optionally test commits
         
         Args:
             keep_commits: Legacy parameter for backwards compatibility (ignored)
             clean_commits: If True, delete test commits from repositories
+            clean_branches: If True, delete test branches from repositories
         """
         overall_success = True
         
@@ -637,11 +661,17 @@ class GitHubOperations:
                 if self.debug:
                     print("ℹ️  Skipping test commit cleanup (clean_commits=False)")
             
-            # Clean up test branches
-            for repo_name in self.temp_dirs.keys():
-                branch_success = self._cleanup_test_branches(repo_name)
-                if not branch_success:
-                    overall_success = False
+            # Clean up test branches (if requested)
+            if clean_branches:
+                if self.debug:
+                    print("🧹 Cleaning up test branches from repositories...")
+                for repo_name in self.temp_dirs.keys():
+                    branch_success = self._cleanup_test_branches(repo_name)
+                    if not branch_success:
+                        overall_success = False
+            else:
+                if self.debug:
+                    print("ℹ️  Skipping test branch cleanup (clean_branches=False)")
             
             # Clean up temporary directories
             for repo_name, temp_dir in self.temp_dirs.items():

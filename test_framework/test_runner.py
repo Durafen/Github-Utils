@@ -28,12 +28,13 @@ except ImportError:
 class HybridTestRunner:
     """Main test runner that orchestrates hybrid testing scenarios"""
     
-    def __init__(self, debug: bool = False):
+    def __init__(self, debug: bool = False, settings: dict = None):
         self.debug = debug
         self.github_ops = GitHubOperations(debug=debug)
         self.ai_mocker = AIMockingManager(debug=debug)
         self.validator = TestValidator(debug=debug)
         self.test_results = []
+        self.settings = settings or {'delete_commits_after_phase': True}
         
         # Project paths - find the actual main project directory
         # Handle both direct execution and symlinked execution
@@ -505,7 +506,8 @@ class HybridTestRunner:
         """Clean up test artifacts and temporary files"""
         try:
             # Clean up GitHub operations
-            self.github_ops.cleanup_test_artifacts(keep_commits=True)
+            should_delete_commits = self.settings.get('delete_commits_after_phase', True)
+            self.github_ops.cleanup_test_artifacts(keep_commits=not should_delete_commits, clean_branches=should_delete_commits)
             
             # Reset validation results
             self.validator.reset_results()

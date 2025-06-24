@@ -41,7 +41,7 @@ class MainTestOrchestrator:
         self.settings = self._load_settings()
         
         # Initialize core components
-        self.runner = HybridTestRunner(debug=debug)
+        self.runner = HybridTestRunner(debug=debug, settings=self.settings)
         self.scenarios_manager = TestScenariosManager(self.runner)
         self.reporter = TestReporter(debug=debug)
         
